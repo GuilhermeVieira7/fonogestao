@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+
+{% block title %}Excluir Agendamento - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card glass-card p-4 text-center">
+            <i class="bi bi-exclamation-triangle text-danger display-4 mb-3"></i>
+            <h4 class="text-danger fw-bold mb-3">Excluir Agendamento?</h4>
+            <p class="text-muted">Tem certeza de que deseja cancelar e excluir o agendamento de <strong>{{ object.paciente.nome }}</strong> para o dia <strong>{{ object.data_hora|date:"d/m/Y às H:i" }}</strong>?</p>
+            <p class="small text-danger">Esta ação não pode ser desfeita.</p>
+            
+            <form method="post" class="mt-4">
+                {% csrf_token %}
+                <div class="d-flex justify-content-center gap-2">
+                    <a href="{% url 'dashboard_fono' %}" class="btn btn-outline-secondary rounded-pill px-4">Voltar</a>
+                    <button type="submit" class="btn btn-danger rounded-pill px-4">Sim, Excluir</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

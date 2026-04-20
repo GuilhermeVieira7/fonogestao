@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Relatório de Evolução</title>
+<style>
+    @page {
+        size: a4 portrait;
+        margin: 2cm;
+        @frame footer {
+            -pdf-frame-content: footerContent;
+            bottom: 1cm;
+            margin-left: 2cm;
+            margin-right: 2cm;
+            height: 1cm;
+        }
+    }
+    body {
+        font-family: Helvetica, sans-serif;
+        color: #333;
+        font-size: 11pt;
+    }
+    .header {
+        text-align: center;
+        border-bottom: 2px solid #00796b;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    .header h1 {
+        color: #00796b;
+        margin: 0;
+        font-size: 24pt;
+    }
+    .header p {
+        margin: 0;
+        color: #666;
+    }
+    .info-box {
+        background-color: #f0f4f8;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+    }
+    .info-box p {
+        margin: 5px 0;
+    }
+    h2 {
+        color: #004c40;
+        border-bottom: 1px solid #ccc;
+        padding-bottom: 5px;
+    }
+    .consulta-item {
+        margin-bottom: 15px;
+        page-break-inside: avoid;
+    }
+    .consulta-header {
+        background-color: #e0f2f1;
+        padding: 5px 10px;
+        font-weight: bold;
+        color: #004c40;
+    }
+    .consulta-body {
+        padding: 10px;
+        border: 1px solid #e0f2f1;
+    }
+    .footer {
+        text-align: center;
+        font-size: 9pt;
+        color: #999;
+    }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1>FonoGestão Clínica</h1>
+    <p>Relatório de Evolução Clínica</p>
+</div>
+
+<div class="info-box">
+    <p><strong>Paciente:</strong> {{ paciente.nome }}</p>
+    <p><strong>CPF:</strong> {{ paciente.cpf }}</p>
+    <p><strong>Data de Nascimento:</strong> {{ paciente.data_nascimento|date:"d/m/Y" }}</p>
+    {% if paciente.nome_responsavel %}
+    <p><strong>Responsável:</strong> {{ paciente.nome_responsavel }}</p>
+    {% endif %}
+    <p><strong>Fonoaudiólogo(a):</strong> {{ paciente.fonoaudiologo.user.get_full_name }} (CRFa: {{ paciente.fonoaudiologo.crfa }})</p>
+</div>
+
+<h2>Histórico Clínico</h2>
+<p>{{ paciente.historico_clinico|linebreaks }}</p>
+
+<h2>Consultas e Evolução</h2>
+{% if consultas %}
+    {% for consulta in consultas %}
+    <div class="consulta-item">
+        <div class="consulta-header">
+            Data: {{ consulta.data_hora|date:"d/m/Y H:i" }} | Nota de Desempenho: {{ consulta.desempenho_nota }}/10
+        </div>
+        <div class="consulta-body">
+            <p><strong>Observações:</strong> {{ consulta.observacoes }}</p>
+            {% if consulta.plano_acao %}
+            <p><strong>Plano de Ação:</strong> {{ consulta.plano_acao }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <p>Nenhuma consulta registrada até o momento.</p>
+{% endif %}
+
+<div id="footerContent">
+    <div class="footer">
+        Gerado por FonoGestão - Sistema Integrado de Fonoaudiologia
+        <br>Página <pdf:pagenumber> de <pdf:pagecount>
+    </div>
+</div>
+
+</body>
+</html>

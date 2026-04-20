@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center" style="min-height: 70vh;">
+    <div class="col-md-5">
+        <div class="card glass-card p-4">
+            <h3 class="text-center mb-4 text-primary">Acesso ao Sistema</h3>
+            <form method="post">
+                {% csrf_token %}
+                {% if form.errors %}
+                    <div class="alert alert-danger">Usuário ou senha incorretos.</div>
+                {% endif %}
+                <div class="mb-3">
+                    <label for="id_username" class="form-label">Usuário</label>
+                    <input type="text" name="username" class="form-control" id="id_username" required>
+                </div>
+                <div class="mb-4">
+                    <label for="id_password" class="form-label">Senha</label>
+                    <input type="password" name="password" class="form-control" id="id_password" required>
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <button type="submit" class="btn btn-primary w-100 py-2">Entrar</button>
+                </div>
+                <div class="text-center mb-3">
+                    <a href="{% url 'password_reset' %}" class="text-muted small text-decoration-none">Esqueci minha senha</a>
+                </div>
+            </form>
+            <div class="mt-4 text-center">
+                <p class="text-muted mb-2 small">Primeiro acesso?</p>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'cadastro_paciente' %}" class="btn btn-outline-secondary btn-sm rounded-pill">Sou Paciente / Responsável</a>
+                    <a href="{% url 'cadastro_fono' %}" class="btn btn-outline-primary btn-sm rounded-pill">Sou Fonoaudiólogo(a)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

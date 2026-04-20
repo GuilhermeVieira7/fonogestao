@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Cadastro Paciente - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card glass-card p-4">
+            <div class="text-center mb-4">
+                <i class="bi bi-person-hearts text-secondary display-4"></i>
+                <h3 class="text-secondary mt-2">Sou Paciente / Responsável</h3>
+                <p class="text-muted">Crie sua conta para acessar seus materiais e acompanhar seu desempenho.</p>
+            </div>
+            
+            <form method="post">
+                {% csrf_token %}
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    Por favor, corrija os erros abaixo.
+                    {{ form.errors }}
+                </div>
+                {% endif %}
+                
+                <h5 class="text-secondary mb-3">Seu Fonoaudiólogo(a)</h5>
+                <div class="mb-4">
+                    <label class="form-label text-muted">Selecione o profissional que te atende:</label>
+                    {{ form.fonoaudiologo }}
+                </div>
+
+                <h5 class="text-secondary mb-3">Dados de Acesso</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label">Nome de Usuário (Login)</label>
+                        {{ form.username }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Senha</label>
+                        {{ form.password }}
+                    </div>
+                </div>
+
+                <h5 class="text-secondary mb-3">Dados Pessoais</h5>
+                <div class="mb-3">
+                    <label class="form-label">Nome Completo do Paciente</label>
+                    {{ form.nome }}
+                </div>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Data de Nascimento</label>
+                        {{ form.data_nascimento }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">CPF (Paciente ou Responsável)</label>
+                        {{ form.cpf }}
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nome do Responsável (se for menor de idade)</label>
+                    {{ form.nome_responsavel }}
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Breve Histórico / Motivo da Consulta</label>
+                    {{ form.historico_clinico }}
+                </div>
+
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-secondary py-2 fw-bold text-white" style="background-color: var(--secondary-medical); border-color: var(--secondary-medical);">Criar Conta de Paciente</button>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{% url 'login' %}" class="text-muted text-decoration-none small">Já possui uma conta? Entrar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,303 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Prontuário: {{ paciente.nome }} - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="{% url 'dashboard_fono' %}" class="text-muted text-decoration-none mb-2 d-inline-block"><i class="bi bi-arrow-left"></i> Voltar ao Dashboard</a>
+        <h2 class="text-primary fw-bold mb-0">Prontuário: {{ paciente.nome }}</h2>
+        <p class="text-muted mt-1"><i class="bi bi-person-badge me-1"></i> CPF: {{ paciente.cpf }} | Nascimento: {{ paciente.data_nascimento|date:"d/m/Y" }}</p>
+    </div>
+    <div>
+        <a href="{% url 'exportar_pdf' paciente.id %}" class="btn btn-outline-primary" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Exportar Prontuário Completo</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-3 mb-4">
+        <div class="card glass-card border-0 h-100">
+            <div class="card-body">
+                <h6 class="text-primary fw-bold text-uppercase mb-3">Informações Pessoais</h6>
+                {% if paciente.nome_responsavel %}
+                <p class="mb-2"><small class="text-muted d-block">Responsável</small> <strong>{{ paciente.nome_responsavel }}</strong></p>
+                {% endif %}
+                <p class="mb-2"><small class="text-muted d-block">Cadastro</small> <strong>{{ paciente.criado_em|date:"d/m/Y" }}</strong></p>
+                
+                <h6 class="text-primary fw-bold text-uppercase mt-4 mb-2">Histórico Clínico</h6>
+                <div class="p-3 bg-light rounded text-muted small">
+                    {{ paciente.historico_clinico|linebreaks|default:"Nenhum histórico registrado." }}
+                </div>
+                
+                <div class="mt-4 d-grid">
+                    <button class="btn btn-outline-primary btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#perfilPacienteModal">Ver Ficha Cadastral Completa</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-9">
+        <div class="card glass-card border-0">
+            <div class="card-header bg-white pt-3 pb-0 border-bottom-0">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active px-4 py-3" id="evolucao-tab" data-bs-toggle="tab" data-bs-target="#evolucao" type="button" role="tab"><i class="bi bi-graph-up text-primary me-2"></i> Evolução</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link px-4 py-3" id="consultas-tab" data-bs-toggle="tab" data-bs-target="#consultas" type="button" role="tab"><i class="bi bi-journal-medical text-primary me-2"></i> Consultas</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link px-4 py-3" id="materiais-tab" data-bs-toggle="tab" data-bs-target="#materiais" type="button" role="tab"><i class="bi bi-folder2-open text-primary me-2"></i> Material Didático</button>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="card-body p-4">
+                <div class="tab-content" id="myTabContent">
+                    
+                    <!-- TAB EVOLUÇÃO -->
+                    <div class="tab-pane fade show active" id="evolucao" role="tabpanel">
+                        <h5 class="fw-bold text-dark mb-4">Gráfico de Desempenho</h5>
+                        {% if consultas %}
+                        <div style="height: 300px; width: 100%;">
+                            <canvas id="evolucaoChart"></canvas>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-light text-center py-5">
+                            <i class="bi bi-bar-chart text-muted display-4 d-block mb-3"></i>
+                            <p class="text-muted mb-0">Registre consultas para gerar o gráfico de evolução.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- TAB CONSULTAS -->
+                    <div class="tab-pane fade" id="consultas" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="fw-bold text-dark mb-0">Histórico de Consultas</h5>
+                            <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#novaConsultaModal">
+                                <i class="bi bi-plus-lg"></i> Nova Consulta
+                            </button>
+                        </div>
+                        
+                        <div class="timeline">
+                            {% for consulta in consultas %}
+                            <div class="timeline-item">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <h6 class="fw-bold mb-1">{{ consulta.data_hora|date:"d/m/Y - H:i" }}</h6>
+                                    <span class="badge bg-primary rounded-pill">Nota: {{ consulta.desempenho_nota }}/10</span>
+                                </div>
+                                <p class="text-muted small mb-2">{{ consulta.observacoes|truncatechars:100 }}</p>
+                                <button class="btn btn-sm btn-outline-secondary rounded-pill mb-3" data-bs-toggle="modal" data-bs-target="#consultaDetailModal{{ consulta.id }}">Ver Detalhes Completos</button>
+                            </div>
+                            
+                            {% empty %}
+                            <p class="text-muted">Nenhuma consulta registrada ainda.</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- TAB MATERIAIS -->
+                    <div class="tab-pane fade" id="materiais" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h5 class="fw-bold text-dark mb-0">Materiais Disponibilizados</h5>
+                            <button class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#uploadMaterialModal">
+                                <i class="bi bi-upload"></i> Enviar Mídia/Link
+                            </button>
+                            <a href="{% url 'gerar_atividade_pdf' paciente.id %}" class="btn btn-primary btn-sm rounded-pill px-3">
+                                <i class="bi bi-magic"></i> Gerar Atividade (PDF)
+                            </a>
+                        </div>
+                        
+                        {% if materiais %}
+                        <div class="list-group list-group-flush">
+                            {% for material in materiais %}
+                            <div class="list-group-item px-0 border-light py-3">
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1 fw-bold text-primary"><i class="bi bi-file-earmark-text me-2"></i>{{ material.titulo }}</h6>
+                                        <small class="text-muted">Enviado em: {{ material.data_upload|date:"d/m/Y H:i" }}</small>
+                                    </div>
+                                    <a href="{{ material.arquivo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Visualizar</a>
+                                </div>
+                                {% if material.descricao %}
+                                <p class="mb-1 mt-2 small text-muted">{{ material.descricao }}</p>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="alert alert-light text-center py-5">
+                            <i class="bi bi-folder-x text-muted display-4 d-block mb-3"></i>
+                            <p class="text-muted mb-0">Nenhum material didático enviado.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nova Consulta -->
+<div class="modal fade" id="novaConsultaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title fw-bold text-primary">Registrar Nova Consulta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post">
+                <div class="modal-body p-4">
+                    {% csrf_token %}
+                    {{ consulta_form.as_p }}
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Salvar Consulta</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Perfil Completo Paciente -->
+<div class="modal fade" id="perfilPacienteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-person-lines-fill me-2"></i> Ficha Cadastral do Paciente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="d-inline-flex align-items-center justify-content-center bg-light text-primary rounded-circle mb-3" style="width: 80px; height: 80px; font-size: 30px;">
+                    {{ paciente.nome|make_list|first|upper }}
+                </div>
+                <h4 class="fw-bold text-primary">{{ paciente.nome }}</h4>
+                <p class="text-muted mb-0">Paciente desde {{ paciente.criado_em|date:"M/Y" }}</p>
+                <hr>
+                <div class="text-start">
+                    <p><strong>CPF:</strong> {{ paciente.cpf }}</p>
+                    <p><strong>Data de Nascimento:</strong> {{ paciente.data_nascimento|date:"d/m/Y" }}</p>
+                    {% if paciente.nome_responsavel %}
+                    <p><strong>Nome do Responsável:</strong> {{ paciente.nome_responsavel }}</p>
+                    {% endif %}
+                    {% if paciente.user %}
+                    <p><strong>Usuário no Sistema:</strong> {{ paciente.user.username }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Upload de Material -->
+<div class="modal fade" id="uploadMaterialModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-secondary text-white border-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-cloud-arrow-up me-2"></i> Enviar Mídia ou Link</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" enctype="multipart/form-data">
+                <div class="modal-body p-4">
+                    {% csrf_token %}
+                    <p class="text-muted small mb-4">Você pode enviar imagens, áudios (.mp3), vídeos curtos ou colar um link do YouTube para o paciente acessar em casa.</p>
+                    <input type="hidden" name="material_upload" value="1">
+                    {{ material_form.as_p }}
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-secondary rounded-pill px-4">Fazer Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modais Detalhes das Consultas -->
+{% for consulta in consultas %}
+<div class="modal fade" id="consultaDetailModal{{ consulta.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title fw-bold text-primary">Sessão: {{ consulta.data_hora|date:"d/m/Y H:i" }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p><strong>Desempenho:</strong> {{ consulta.desempenho_nota }} / 10</p>
+                <hr>
+                <h6><strong>Observações:</strong></h6>
+                <p class="text-break text-muted">{{ consulta.observacoes|linebreaksbr }}</p>
+                
+                {% if consulta.plano_acao %}
+                <h6 class="mt-4"><strong>Plano de Ação:</strong></h6>
+                <div class="p-3 bg-light rounded text-muted small text-break">
+                    {{ consulta.plano_acao|linebreaksbr }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var ctx = document.getElementById('evolucaoChart');
+        if(ctx) {
+            var labels = {{ chart_labels|safe|default:"[]" }};
+            var data = {{ chart_data|safe|default:"[]" }};
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Desempenho (Nota)',
+                        data: data,
+                        borderColor: '#00796b',
+                        backgroundColor: 'rgba(0, 121, 107, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: false,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#00796b',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 10,
+                            grid: {
+                                borderDash: [2, 4],
+                                color: '#e0e0e0'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

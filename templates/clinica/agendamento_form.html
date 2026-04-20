@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Agendamento - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card glass-card p-4">
+            <h4 class="text-primary fw-bold mb-4">Alterar Agendamento</h4>
+            <form method="post">
+                {% csrf_token %}
+                {{ form.as_p }}
+                <div class="d-flex justify-content-end mt-4">
+                    <a href="{% url 'dashboard_fono' %}" class="btn btn-outline-secondary rounded-pill me-2">Cancelar</a>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

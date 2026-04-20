@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+
+{% block title %}Área do Paciente - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="text-primary fw-bold mb-0">Bem-vindo(a), {{ user.get_full_name|default:user.username }}!</h2>
+        <p class="text-muted mt-1">Acompanhe seu desempenho e acesse suas atividades.</p>
+    </div>
+    <div>
+        <!-- Botão Perfil Fono -->
+        <button class="btn btn-outline-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#perfilFonoModal">
+            <i class="bi bi-person-badge me-2"></i> Meu Doutor(a)
+        </button>
+    </div>
+</div>
+
+<div class="card glass-card border-0 mb-5">
+    <div class="card-header bg-white pt-3 pb-0 border-bottom-0">
+        <ul class="nav nav-tabs" id="pacienteTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active px-4 py-3" id="materiais-tab" data-bs-toggle="tab" data-bs-target="#materiais" type="button" role="tab"><i class="bi bi-folder2-open text-primary me-2"></i> Meus Materiais e Exercícios</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link px-4 py-3" id="agenda-tab" data-bs-toggle="tab" data-bs-target="#agenda" type="button" role="tab"><i class="bi bi-calendar-event text-primary me-2"></i> Minha Agenda</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link px-4 py-3" id="desempenho-tab" data-bs-toggle="tab" data-bs-target="#desempenho" type="button" role="tab"><i class="bi bi-graph-up-arrow text-primary me-2"></i> Meu Desempenho</button>
+            </li>
+        </ul>
+    </div>
+    
+    <div class="card-body p-4">
+        <div class="tab-content" id="pacienteTabContent">
+            
+            <!-- Aba Materiais -->
+            <div class="tab-pane fade show active" id="materiais" role="tabpanel">
+                <h5 class="fw-bold text-dark mb-4">Atividades para Casa</h5>
+                
+                <div class="row g-4">
+                    {% for material in materiais %}
+                    <div class="col-md-6">
+                        <div class="card border-0 bg-light h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-3">
+                                    <h6 class="card-title fw-bold text-primary mb-0">
+                                        {% if material.arquivo.url|slice:"-4:" == ".mp3" or material.arquivo.url|slice:"-4:" == ".wav" %}
+                                            <i class="bi bi-file-earmark-music me-2"></i>
+                                        {% elif material.arquivo.url|slice:"-4:" == ".jpg" or material.arquivo.url|slice:"-4:" == ".png" %}
+                                            <i class="bi bi-file-earmark-image me-2"></i>
+                                        {% elif material.arquivo.url|slice:"-4:" == ".mp4" %}
+                                            <i class="bi bi-file-earmark-play me-2"></i>
+                                        {% else %}
+                                            <i class="bi bi-file-earmark-text me-2"></i>
+                                        {% endif %}
+                                        {{ material.titulo }}
+                                    </h6>
+                                    <small class="text-muted">{{ material.data_upload|date:"d/m/Y" }}</small>
+                                </div>
+                                {% if material.descricao %}
+                                <p class="card-text text-muted small">{{ material.descricao }}</p>
+                                {% endif %}
+                                
+                                <div class="mt-3">
+                                    {% if material.arquivo %}
+                                        {% if material.arquivo.url|slice:"-4:" == ".mp3" or material.arquivo.url|slice:"-4:" == ".wav" %}
+                                            <audio controls class="w-100 mt-2">
+                                                <source src="{{ material.arquivo.url }}" type="audio/mpeg">
+                                                Seu navegador não suporta áudio.
+                                            </audio>
+                                        {% elif material.arquivo.url|slice:"-4:" == ".mp4" %}
+                                            <video controls class="w-100 mt-2 rounded" style="max-height: 200px;">
+                                                <source src="{{ material.arquivo.url }}" type="video/mp4">
+                                            </video>
+                                        {% elif material.arquivo.url|slice:"-4:" == ".jpg" or material.arquivo.url|slice:"-4:" == ".png" or material.arquivo.url|slice:"-5:" == ".jpeg" %}
+                                            <img src="{{ material.arquivo.url }}" class="img-fluid rounded mt-2" alt="{{ material.titulo }}" style="max-height: 200px; object-fit: cover;">
+                                        {% else %}
+                                            <div class="text-end mt-3">
+                                                <a href="{{ material.arquivo.url }}" class="btn btn-primary btn-sm rounded-pill px-4" target="_blank"><i class="bi bi-download me-1"></i> Baixar Documento</a>
+                                            </div>
+                                        {% endif %}
+                                    {% endif %}
+                                    
+                                    {% if material.link_externo %}
+                                    <div class="mt-3 text-end">
+                                        <a href="{{ material.link_externo }}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill px-4"><i class="bi bi-link-45deg me-1"></i> Acessar Link Externo</a>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-12">
+                        <div class="alert alert-info text-center p-4 border-0">
+                            Nenhum material didático foi enviado pelo seu fonoaudiólogo(a) até o momento.
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Aba Agenda -->
+            <div class="tab-pane fade" id="agenda" role="tabpanel">
+                <h5 class="fw-bold text-dark mb-4">Minhas Próximas Consultas</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data e Hora</th>
+                                <th>Médico(a)</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for agendamento in agendamentos %}
+                            <tr>
+                                <td><strong>{{ agendamento.data_hora|date:"d/m/Y - H:i" }}</strong></td>
+                                <td>{{ agendamento.fonoaudiologo.user.get_full_name }}</td>
+                                <td><span class="badge bg-warning text-dark">Agendado</span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#agendamentoModal{{ agendamento.id }}">Detalhes</button>
+                                </td>
+                            </tr>
+                            
+
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">Não há agendamentos futuros marcados.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Aba Desempenho -->
+            <div class="tab-pane fade" id="desempenho" role="tabpanel">
+                <h5 class="fw-bold text-dark mb-4">Meu Progresso nas Consultas</h5>
+                
+                {% if consultas %}
+                <div class="card border-0 bg-light p-3">
+                    <div style="height: 350px; width: 100%;">
+                        <canvas id="evolucaoPacienteChart"></canvas>
+                    </div>
+                </div>
+                
+                <h6 class="fw-bold text-dark mt-5 mb-3">Histórico Resumido</h6>
+                <div class="timeline">
+                    {% for consulta in consultas %}
+                    <div class="timeline-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <h6 class="fw-bold mb-1">{{ consulta.data_hora|date:"d/m/Y H:i" }}</h6>
+                            <span class="badge bg-primary rounded-pill">Desempenho: {{ consulta.desempenho_nota }}/10</span>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-secondary rounded-pill" data-bs-toggle="modal" data-bs-target="#consultaModal{{ consulta.id }}">Ver Detalhes da Sessão</button>
+                        </div>
+                    </div>
+                    
+
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="alert alert-info text-center p-4 border-0">
+                    Nenhum registro de evolução foi adicionado ainda. Seu gráfico aparecerá aqui após as primeiras consultas.
+                </div>
+                {% endif %}
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<!-- Modal Perfil Fono -->
+<div class="modal fade" id="perfilFonoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-award me-2"></i> Perfil Profissional</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <div class="d-inline-flex align-items-center justify-content-center bg-light text-primary rounded-circle mb-3" style="width: 80px; height: 80px; font-size: 30px;">
+                    {{ user.paciente_perfil.fonoaudiologo.user.first_name|make_list|first|upper }}
+                </div>
+                <h4 class="fw-bold text-primary">{{ user.paciente_perfil.fonoaudiologo.user.get_full_name }}</h4>
+                <p class="text-muted">{{ user.paciente_perfil.fonoaudiologo.especialidade }}</p>
+                <hr>
+                <div class="text-start">
+                    <p><strong><i class="bi bi-card-heading me-2 text-primary"></i> CRFa:</strong> {{ user.paciente_perfil.fonoaudiologo.crfa }}</p>
+                    <p><strong><i class="bi bi-envelope me-2 text-primary"></i> E-mail:</strong> {{ user.paciente_perfil.fonoaudiologo.user.email }}</p>
+                    <p><strong><i class="bi bi-telephone me-2 text-primary"></i> Telefone:</strong> {{ user.paciente_perfil.fonoaudiologo.telefone }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de Detalhamento Extraídos do Loop -->
+{% for agendamento in agendamentos %}
+<div class="modal fade" id="agendamentoModal{{ agendamento.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title fw-bold text-primary">Detalhes do Agendamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p><strong>Data e Hora:</strong> {{ agendamento.data_hora|date:"d/m/Y às H:i" }}</p>
+                <p><strong>Fonoaudiólogo(a):</strong> {{ agendamento.fonoaudiologo.user.get_full_name }}</p>
+                <p><strong>Status:</strong> Agendado</p>
+                {% if agendamento.observacoes %}
+                <hr>
+                <p><strong>Orientações / Observações pré-consulta:</strong></p>
+                <p class="text-break">{{ agendamento.observacoes|linebreaksbr }}</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% for consulta in consultas %}
+<div class="modal fade" id="consultaModal{{ consulta.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title fw-bold text-primary">Sessão do dia {{ consulta.data_hora|date:"d/m/Y" }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p><strong>Nota de Desempenho:</strong> {{ consulta.desempenho_nota }} / 10</p>
+                <hr>
+                <h6><strong>Observações Clínicas:</strong></h6>
+                <p class="text-break text-muted">{{ consulta.observacoes|linebreaksbr }}</p>
+                
+                {% if consulta.plano_acao %}
+                <h6 class="mt-4"><strong>Plano de Ação / Para Praticar:</strong></h6>
+                <div class="p-3 bg-light rounded text-muted small text-break">
+                    {{ consulta.plano_acao|linebreaksbr }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var ctx = document.getElementById('evolucaoPacienteChart');
+        if(ctx) {
+            var labels = {{ chart_labels|safe|default:"[]" }};
+            var data = {{ chart_data|safe|default:"[]" }};
+            
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Desempenho (Nota)',
+                        data: data,
+                        borderColor: '#0288d1',
+                        backgroundColor: 'rgba(2, 136, 209, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: false,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#0288d1',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 10,
+                            grid: {
+                                borderDash: [2, 4],
+                                color: '#e0e0e0'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

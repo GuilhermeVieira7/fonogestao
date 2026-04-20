@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard Fonoaudiólogo - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="text-primary fw-bold mb-0">Painel de Controle</h2>
+        <p class="text-muted mt-1">Gerencie seus pacientes e sua agenda de consultas.</p>
+    </div>
+</div>
+
+<div class="card glass-card border-0 mb-5">
+    <div class="card-header bg-white pt-3 pb-0 border-bottom-0">
+        <ul class="nav nav-tabs" id="dashboardTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active px-4 py-3" id="pacientes-tab" data-bs-toggle="tab" data-bs-target="#pacientes" type="button" role="tab"><i class="bi bi-people-fill text-primary me-2"></i> Meus Pacientes</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link px-4 py-3" id="agenda-tab" data-bs-toggle="tab" data-bs-target="#agenda" type="button" role="tab"><i class="bi bi-calendar-week text-primary me-2"></i> Minha Agenda</button>
+            </li>
+        </ul>
+    </div>
+    
+    <div class="card-body p-4">
+        <div class="tab-content" id="dashboardTabContent">
+            
+            <!-- Aba Pacientes -->
+            <div class="tab-pane fade show active" id="pacientes" role="tabpanel">
+                <div class="row g-4">
+                    {% for paciente in pacientes %}
+                    <div class="col-md-4">
+                        <a href="{% url 'paciente_detail' paciente.id %}" class="text-decoration-none text-dark">
+                            <div class="card glass-card h-100 border-0" style="background-color: #fafafa;">
+                                <div class="card-body text-center p-4">
+                                    <div class="mb-3">
+                                        <div class="d-inline-flex align-items-center justify-content-center bg-white text-primary rounded-circle shadow-sm" style="width: 70px; height: 70px; font-size: 24px; border: 2px solid var(--primary-light);">
+                                            {{ paciente.nome|make_list|first|upper }}
+                                        </div>
+                                    </div>
+                                    <h5 class="card-title fw-bold mb-1">{{ paciente.nome }}</h5>
+                                    <p class="text-muted small mb-3">
+                                        <i class="bi bi-calendar-event me-1"></i> Nascimento: {{ paciente.data_nascimento|date:"d/m/Y" }}
+                                    </p>
+                                </div>
+                                <div class="card-footer bg-transparent border-0 text-center pb-3 pt-0">
+                                    <span class="btn btn-outline-primary btn-sm rounded-pill px-4">Acessar Prontuário <i class="bi bi-arrow-right ms-1"></i></span>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    {% empty %}
+                    <div class="col-12">
+                        <div class="alert alert-light text-center p-5 border-0">
+                            <i class="bi bi-person-x display-4 text-muted d-block mb-3"></i>
+                            <h5>Nenhum paciente vinculado.</h5>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Aba Agenda -->
+            <div class="tab-pane fade" id="agenda" role="tabpanel">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold text-dark mb-0">Próximos Agendamentos</h5>
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#novoAgendamentoModal">
+                        <i class="bi bi-plus-lg"></i> Novo Agendamento
+                    </button>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data e Hora</th>
+                                <th>Paciente</th>
+                                <th>Status</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for agendamento in agendamentos %}
+                            <tr>
+                                <td><strong>{{ agendamento.data_hora|date:"d/m/Y - H:i" }}</strong></td>
+                                <td>
+                                    <a href="{% url 'paciente_detail' agendamento.paciente.id %}" class="text-decoration-none">
+                                        {{ agendamento.paciente.nome }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if agendamento.status == 'A' %}
+                                        <span class="badge bg-warning text-dark">Agendado</span>
+                                    {% elif agendamento.status == 'R' %}
+                                        <span class="badge bg-success">Realizado</span>
+                                    {% else %}
+                                        <span class="badge bg-danger">Cancelado</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary rounded-pill me-1" data-bs-toggle="modal" data-bs-target="#agendamentoFonoModal{{ agendamento.id }}"><i class="bi bi-eye"></i></button>
+                                    <a href="{% url 'agendamento_editar' agendamento.id %}" class="btn btn-sm btn-outline-secondary rounded-pill me-1"><i class="bi bi-pencil"></i></a>
+                                    <a href="{% url 'agendamento_excluir' agendamento.id %}" class="btn btn-sm btn-outline-danger rounded-pill"><i class="bi bi-trash"></i></a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">Não há agendamentos futuros.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+
+<!-- Modal Novo Agendamento -->
+<div class="modal fade" id="novoAgendamentoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title fw-bold text-primary">Marcar Consulta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post">
+                <div class="modal-body p-4">
+                    {% csrf_token %}
+                    {{ agendamento_form.as_p }}
+                </div>
+                <div class="modal-footer border-0 bg-light">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Salvar Agendamento</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de Detalhes de Agendamento (Fono) -->
+{% for agendamento in agendamentos %}
+<div class="modal fade" id="agendamentoFonoModal{{ agendamento.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title fw-bold text-primary">Detalhes do Agendamento</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p><strong>Paciente:</strong> {{ agendamento.paciente.nome }}</p>
+                <p><strong>Data e Hora:</strong> {{ agendamento.data_hora|date:"d/m/Y às H:i" }}</p>
+                <p><strong>Status:</strong> 
+                    {% if agendamento.status == 'A' %} Agendado
+                    {% elif agendamento.status == 'R' %} Realizado
+                    {% else %} Cancelado {% endif %}
+                </p>
+                <hr>
+                <p><strong>Observações anotadas:</strong></p>
+                <p class="text-break">{{ agendamento.observacoes|linebreaksbr|default:"Nenhuma observação." }}</p>
+            </div>
+            <div class="modal-footer border-0 bg-light">
+                <a href="{% url 'agendamento_editar' agendamento.id %}" class="btn btn-outline-secondary rounded-pill">Editar</a>
+                <button type="button" class="btn btn-primary rounded-pill px-4" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock %}
