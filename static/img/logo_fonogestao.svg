@@ -1,0 +1,13 @@
+        <svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="20" fill="#00796b"/>
+            <!-- Outer Ear Curve -->
+            <path d="M 35 43 C 32 29, 44 23, 56 25 C 67 27, 68 45, 61 61 C 55 74, 47 79, 41 77 C 37 75, 37 69, 39 65" stroke="white" stroke-width="4.5" stroke-linecap="round" fill="none" />
+            <!-- Inner Curve 1 -->
+            <path d="M 39 42 C 38 32, 46 28, 53 29 C 60 30, 62 43, 56 56 C 52 65, 47 69, 43 68" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+            <!-- Inner Curve 2 -->
+            <path d="M 43 42 C 43 36, 47 33, 51 34 C 55 35, 56 43, 52 51 C 50 55, 47 57, 44 56" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+            <!-- Inner Curve 3 -->
+            <path d="M 43 42 C 44 46, 49 49, 51 52 C 53 55, 51 59, 47 61 C 45 62, 43 64, 42 66" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+            <!-- Inner Curve 4 -->
+            <path d="M 42 50 C 39 52, 39 55, 43 58 C 45 59, 44 61, 42 63" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+        </svg>

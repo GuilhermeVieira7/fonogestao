@@ -1,0 +1,68 @@
+<style>
+    @page {
+        size: a4 portrait;
+        margin: 1.6cm 1.7cm 2.4cm 1.7cm;
+        @frame footer {
+            -pdf-frame-content: footerContent;
+            bottom: 0.8cm;
+            margin-left: 1.7cm;
+            margin-right: 1.7cm;
+            height: 1.3cm;
+        }
+    }
+    body { font-family: Helvetica, sans-serif; color: #1f2933; font-size: 9.5pt; line-height: 1.35; }
+
+    /* Cabeçalho institucional */
+    .cab { width: 100%; }
+    .cab td { vertical-align: middle; }
+    .cab-marca { font-size: 15pt; font-weight: bold; color: #00796b; }
+    .cab-sub { font-size: 7.5pt; color: #64748b; letter-spacing: 1px; }
+    .cab-clinica { font-size: 8pt; color: #475569; }
+    .cab-doc { text-align: right; }
+    .cab-doc-tipo { font-size: 10pt; font-weight: bold; color: #004c40; }
+    .cab-doc-num { font-size: 7.5pt; color: #64748b; }
+    .faixa { width: 100%; margin-top: 4px; margin-bottom: 12px; }
+    .faixa td { border-bottom: 2.5px solid #00796b; font-size: 1pt; line-height: 1pt; padding: 0; }
+
+    h1.titulo { font-size: 16pt; color: #004c40; margin: 4px 0 2px 0; }
+    .subtitulo { font-size: 8.5pt; color: #64748b; margin-bottom: 12px; }
+
+    /* Seções */
+    .secao { margin-top: 12px; }
+    .secao-titulo {
+        background-color: #00796b; color: #ffffff; font-weight: bold; font-size: 8.5pt;
+        padding: 4px 8px 3px 8px; letter-spacing: 0.6px;
+    }
+
+    /* Tabela de dados (rótulo / valor) */
+    .dados { width: 100%; }
+    .dados td { padding: 4px 7px 3px 7px; border-bottom: 0.5px solid #dde3ef; vertical-align: top; }
+    .rotulo { background-color: #f1f7f6; color: #475569; font-size: 7.5pt; font-weight: bold; width: 20%; }
+    .valor { color: #1f2933; width: 30%; }
+
+    /* Indicadores */
+    .indicadores { width: 100%; margin-top: 6px; }
+    .indicadores td { text-align: center; padding: 7px 4px 5px 4px; background-color: #f1f7f6; border: 0.5px solid #cfe5e1; }
+    .ind-valor { font-size: 14pt; font-weight: bold; color: #00796b; }
+    .ind-rotulo { font-size: 6.8pt; color: #64748b; letter-spacing: 0.4px; }
+
+    .caixa { border: 0.5px solid #dde3ef; background-color: #fafcfd; padding: 8px 10px; margin-top: 6px; }
+    .muted { color: #64748b; }
+    .pequeno { font-size: 7.5pt; }
+
+    /* Sessões */
+    .sessao { width: 100%; margin-top: 7px; }
+    .sessao-cab td { background-color: #e0f2f1; color: #004c40; font-weight: bold; padding: 4px 8px 3px 8px; font-size: 8.5pt; }
+    .sessao-corpo td { padding: 5px 8px 4px 8px; border-left: 0.5px solid #cfe5e1; border-right: 0.5px solid #cfe5e1; border-bottom: 0.5px solid #cfe5e1; }
+    .nota { text-align: right; }
+    .qualit { color: #00796b; }
+
+    /* Assinatura */
+    .assinaturas { width: 100%; margin-top: 34px; }
+    .assinaturas td { text-align: center; vertical-align: top; padding: 0 14px; }
+    .linha-assinatura { border-top: 0.8px solid #1f2933; padding-top: 4px; font-size: 8.5pt; }
+
+    /* Rodapé */
+    .rodape { width: 100%; font-size: 6.8pt; color: #64748b; border-top: 0.5px solid #cfe5e1; }
+    .rodape td { padding-top: 4px; vertical-align: top; }
+</style>

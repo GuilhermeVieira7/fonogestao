@@ -2,102 +2,108 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Atividade para Casa</title>
+<title>{{ titulo }} - {{ paciente.nome }}</title>
+{% include 'clinica/pdfs/_estilos.html' %}
 <style>
-    @page {
-        size: a4 portrait;
-        margin: 2cm;
-        @frame footer {
-            -pdf-frame-content: footerContent;
-            bottom: 1cm;
-            margin-left: 2cm;
-            margin-right: 2cm;
-            height: 1cm;
-        }
-    }
-    body {
-        font-family: Helvetica, sans-serif;
-        color: #333;
-        font-size: 14pt;
-    }
-    .header {
-        text-align: center;
-        border-bottom: 2px solid #0288d1;
-        padding-bottom: 10px;
-        margin-bottom: 30px;
-    }
-    .header h1 {
-        color: #0288d1;
-        margin: 0;
-        font-size: 28pt;
-    }
-    .header p {
-        margin: 0;
-        font-size: 12pt;
-        color: #666;
-    }
-    .patient-info {
-        margin-bottom: 30px;
-        font-size: 14pt;
-    }
-    .activity-box {
-        border: 2px dashed #0288d1;
-        padding: 20px;
-        border-radius: 10px;
-        min-height: 400px;
-    }
-    .activity-title {
-        color: #004c40;
-        text-align: center;
-        margin-top: 0;
-    }
-    .lines {
-        margin-top: 40px;
-    }
-    .line {
-        border-bottom: 1px solid #ccc;
-        margin-bottom: 30px;
-        height: 10px;
-    }
-    .footer {
-        text-align: center;
-        font-size: 9pt;
-        color: #999;
-    }
+    .ola { font-size: 11pt; color: #004c40; margin: 2px 0 10px 0; }
+    .conteudo { font-size: 10.5pt; line-height: 1.5; border: 0.5px solid #cfe5e1; border-left: 3px solid #00796b; background-color: #fafcfd; padding: 10px 12px; margin-top: 6px; }
+    .dicas td { vertical-align: top; padding: 5px 7px 3px 7px; font-size: 8.5pt; background-color: #f1f7f6; border: 0.5px solid #cfe5e1; }
+    .dica-num { color: #00796b; font-weight: bold; font-size: 11pt; }
+    .semana { width: 100%; margin-top: 6px; }
+    .semana td { text-align: center; border: 0.5px solid #b9d7d2; padding: 4px 2px 3px 2px; font-size: 8pt; }
+    .semana .dia { background-color: #e0f2f1; color: #004c40; font-weight: bold; }
+    .marcar td { height: 24px; }
+    .linhas { width: 100%; margin-top: 4px; }
+    .linhas td { border-bottom: 0.5px solid #b9c2cf; height: 22px; }
 </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>FonoGestão - Atividades</h1>
-    <p>Clínica de Fonoaudiologia | Prof. {{ fono.user.get_full_name }}</p>
+{% include 'clinica/pdfs/_cabecalho.html' %}
+
+<h1 class="titulo">{{ titulo }}</h1>
+<div class="subtitulo">Atividade fonoaudiológica para realizar em casa, entre as sessões.</div>
+
+<table class="dados">
+    <tr>
+        <td class="rotulo">Paciente</td><td class="valor"><b>{{ paciente.nome }}</b></td>
+        <td class="rotulo">Data de emissão</td><td class="valor">{{ data_atividade|date:"d/m/Y" }}</td>
+    </tr>
+    <tr>
+        <td class="rotulo">Fonoaudiólogo(a)</td><td class="valor">{{ fono_nome }}</td>
+        <td class="rotulo">CRFa</td><td class="valor">{{ fono.crfa }}</td>
+    </tr>
+    {% if paciente.nome_responsavel %}
+    <tr>
+        <td class="rotulo">Responsável</td><td class="valor" colspan="3">{{ paciente.nome_responsavel }}</td>
+    </tr>
+    {% endif %}
+</table>
+
+<div class="secao">
+    <div class="ola">Olá, <b>{{ primeiro_nome }}</b>! Esta atividade foi preparada especialmente para você praticar em casa.</div>
+    <div class="secao-titulo">ORIENTAÇÕES DO(A) FONOAUDIÓLOGO(A)</div>
+    <div class="conteudo">{{ conteudo|linebreaksbr }}</div>
 </div>
 
-<div class="patient-info">
-    <strong>Nome:</strong> {{ paciente.nome }} <br>
-    <strong>Data:</strong> ____/____/________
+<div class="secao">
+    <div class="secao-titulo">COMO APROVEITAR MELHOR A ATIVIDADE</div>
+    <table class="dicas" style="margin-top: 6px;">
+        <tr>
+            <td width="33%"><span class="dica-num">1</span> &nbsp;Escolha um ambiente calmo, bem iluminado e sem distrações, como TV ou celular.</td>
+            <td width="34%"><span class="dica-num">2</span> &nbsp;Pratique um pouco todos os dias. Sessões curtas e frequentes rendem mais.</td>
+            <td width="33%"><span class="dica-num">3</span> &nbsp;Anote dúvidas e conquistas e traga esta folha na próxima sessão.</td>
+        </tr>
+    </table>
 </div>
 
-<div class="activity-box">
-    <h2 class="activity-title">{{ paciente.nome.split|first }}, hora de praticar!</h2>
-    <p><strong>Instruções do(a) Fonoaudiólogo(a):</strong></p>
-    
-    <div style="margin-top: 20px; font-size: 14pt;">
-        {{ conteudo|linebreaks }}
-    </div>
-    
-    <div class="lines">
-        <div class="line"></div>
-        <div class="line"></div>
-        <div class="line"></div>
-        <div class="line"></div>
-    </div>
+<div class="secao">
+    <div class="secao-titulo">REGISTRO SEMANAL DE PRÁTICA</div>
+    <table class="semana">
+        <tr>
+            <td class="dia">SEG</td><td class="dia">TER</td><td class="dia">QUA</td><td class="dia">QUI</td><td class="dia">SEX</td><td class="dia">SÁB</td><td class="dia">DOM</td>
+        </tr>
+        <tr class="marcar">
+            <td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td>
+        </tr>
+    </table>
+    <div class="pequeno muted" style="margin-top: 3px;">Marque os dias em que a atividade foi realizada.</div>
 </div>
+
+<div class="secao">
+    <div class="secao-titulo">OBSERVAÇÕES DA FAMÍLIA / DO PACIENTE</div>
+    <table class="linhas"><tr><td>&nbsp;</td></tr><tr><td>&nbsp;</td></tr><tr><td>&nbsp;</td></tr></table>
+</div>
+
+<table class="assinaturas">
+    <tr>
+        <td width="50%">
+            <div class="linha-assinatura">
+                <b>{{ fono_nome }}</b><br>
+                <span class="pequeno muted">Fonoaudiólogo(a) &middot; CRFa {{ fono.crfa }}</span>
+            </div>
+        </td>
+        <td width="50%">
+            <div class="linha-assinatura">
+                {{ paciente.nome_responsavel|default:paciente.nome }}<br>
+                <span class="pequeno muted">{% if paciente.nome_responsavel %}Responsável{% else %}Paciente{% endif %}</span>
+            </div>
+        </td>
+    </tr>
+</table>
 
 <div id="footerContent">
-    <div class="footer">
-        Atividade Personalizada gerada via FonoGestão
-    </div>
+    <table class="rodape">
+        <tr>
+            <td width="78%">
+                Material de uso individual, elaborado para {{ paciente.nome }}. Em caso de dúvidas, fale com seu(sua) fonoaudiólogo(a){% if fono.telefone %} pelo telefone {{ fono.telefone }}{% endif %}{% if clinica %} ou com a {{ clinica.nome }}{% endif %}.
+            </td>
+            <td width="22%" style="text-align: right;">
+                Nº {{ numero_documento }}<br>
+                Página <pdf:pagenumber> de <pdf:pagecount>
+            </td>
+        </tr>
+    </table>
 </div>
 
 </body>

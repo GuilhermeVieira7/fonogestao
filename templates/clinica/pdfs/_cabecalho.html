@@ -1,0 +1,20 @@
+<table class="cab">
+    <tr>
+        <td width="54"><img src="{{ logo_path }}" width="44" height="44"></td>
+        <td width="300">
+            <div class="cab-marca">FonoGestão</div>
+            <div class="cab-sub">FONOAUDIOLOGIA CLÍNICA</div>
+            {% if clinica %}
+            <div class="cab-clinica"><b>{{ clinica.nome }}</b>{% if clinica.cnpj %} &middot; CNPJ {{ clinica.cnpj }}{% endif %}</div>
+            <div class="cab-clinica">{{ clinica.endereco }}{% if clinica.cidade %} &middot; {{ clinica.cidade }}/{{ clinica.estado }}{% endif %}{% if clinica.cep %} &middot; CEP {{ clinica.cep }}{% endif %}</div>
+            <div class="cab-clinica">{% if clinica.telefone %}Tel. {{ clinica.telefone }}{% endif %}{% if clinica.email %} &middot; {{ clinica.email }}{% endif %}</div>
+            {% endif %}
+        </td>
+        <td class="cab-doc">
+            <div class="cab-doc-tipo">{{ tipo_documento }}</div>
+            <div class="cab-doc-num">Nº {{ numero_documento }}</div>
+            <div class="cab-doc-num">Emitido em {{ emitido_em|date:"d/m/Y \à\s H:i" }}</div>
+        </td>
+    </tr>
+</table>
+<table class="faixa"><tr><td>&nbsp;</td></tr></table>

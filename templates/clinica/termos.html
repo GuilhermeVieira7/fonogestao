@@ -1,0 +1,31 @@
+﻿{% extends 'base.html' %}
+{% block title %}Termos de Uso - FonoGestao{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h2><i class="bi bi-file-text-fill me-2 text-primary"></i>Termos de Uso</h2>
+    <p>Leia atentamente os termos e condicoes de uso da plataforma.</p>
+</div>
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="card border-0" style="box-shadow:var(--shadow-sm);">
+            <div class="card-body p-5">
+                {% if termo %}
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-700 mb-0">{{ termo.get_tipo_display }}</h5>
+                    <span class="badge" style="background:var(--primary-bg);color:var(--primary);">Versao {{ termo.versao }}</span>
+                </div>
+                <div class="text-muted" style="font-size:.78rem;margin-bottom:24px;">Publicado em: {{ termo.criado_em|date:"d/m/Y" }}</div>
+                <div style="font-size:.9rem;line-height:1.8;color:var(--text-main);">
+                    {{ termo.conteudo|linebreaksbr }}
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-file-earmark display-4 text-muted d-block mb-3"></i>
+                    <p class="text-muted">Os Termos de Uso ainda nao foram publicados. Entre em contato com o administrador.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

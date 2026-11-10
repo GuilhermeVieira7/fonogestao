@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Confirmar Exclusão de Horário - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-0 shadow">
+                <div class="card-body p-5 text-center">
+                    <i class="bi bi-exclamation-triangle text-danger display-3 d-block mb-4"></i>
+                    <h4 class="fw-bold text-danger mb-3">Confirmar Exclusão</h4>
+                    <p class="text-muted mb-4">
+                        Deseja realmente excluir este horário de disponibilidade?
+                    </p>
+                    <div class="p-3 bg-light rounded text-start text-muted small mb-4">
+                        <p class="mb-2"><strong>Clínica:</strong> {{ object.clinica.nome }}</p>
+                        <p class="mb-2"><strong>Dia:</strong> {{ object.get_dia_semana_display }}</p>
+                        <p class="mb-0"><strong>Horário:</strong> {{ object.hora_inicio|time:"H:i" }} às {{ object.hora_fim|time:"H:i" }}</p>
+                    </div>
+                    
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger rounded-pill px-4">
+                            <i class="bi bi-trash me-2"></i> Sim, Excluir
+                        </button>
+                    </form>
+                    <a href="{% url 'disponibilidade_list' %}" class="btn btn-outline-secondary rounded-pill px-4">
+                        <i class="bi bi-arrow-left me-2"></i> Cancelar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

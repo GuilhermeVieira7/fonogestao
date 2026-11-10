@@ -1,0 +1,242 @@
+﻿{% extends 'base.html' %}
+{% block title %}Assistente Inteligente - FonoGestão{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4">
+        <div>
+            <h2><i class="bi bi-robot me-2 text-primary"></i>Assistente Inteligente</h2>
+            <p class="text-muted">Resumo da sua agenda e dados do sistema. <span id="ultima-atualizacao" style="font-size:.85rem;"></span></p>
+        </div>
+        <button onclick="location.reload()" class="btn btn-outline-primary btn-sm rounded-pill px-3" id="btn-refresh">
+            <i class="bi bi-arrow-clockwise me-1"></i>Atualizar <span id="refresh-countdown" class="ms-1 text-muted" style="font-size:.75rem;"></span>
+        </button>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card glass-card border-0">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-calendar-check-fill display-5 text-success"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-1">{{ total_hoje }}</h3>
+                    <p class="text-muted small mb-0">Consultas Hoje</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card glass-card border-0">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-hourglass-split display-5 text-warning"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-1">{{ total_pendentes }}</h3>
+                    <p class="text-muted small mb-0">Pendentes de Confirmação</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card glass-card border-0">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-people-fill display-5 text-info"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-1">{{ total_pacientes }}</h3>
+                    <p class="text-muted small mb-0">Total de Pacientes</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card glass-card border-0">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-building display-5 text-primary"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-1">{{ total_clinicas }}</h3>
+                    <p class="text-muted small mb-0">Clínicas Ativas</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dados Adicionais -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card glass-card border-0">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-clock-history display-5 text-secondary"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-1">{{ proximos_7_dias.count }}</h3>
+                    <p class="text-muted small mb-0">Próximos 7 Dias</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card glass-card border-0">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-exclamation-triangle-fill display-5 text-danger"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-1">{{ conflitos|length }}</h3>
+                    <p class="text-muted small mb-0">Conflitos de Horário</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+            <div class="card glass-card border-0">
+                <div class="card-body p-4 text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-calendar-range display-5 text-success"></i>
+                    </div>
+                    <h3 class="fw-bold text-dark mb-1">{{ disponibilidades_ativas }}</h3>
+                    <p class="text-muted small mb-0">Horários Cadastrados</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conteúdo Principal -->
+    <div class="row g-3">
+        <!-- Agenda de Hoje -->
+        <div class="col-lg-6">
+            <div class="card glass-card border-0">
+                <div class="card-header bg-white border-bottom pt-3 pb-0 border-0">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-calendar-day me-2 text-primary"></i>Agenda de Hoje</h6>
+                </div>
+                <div class="card-body p-3" style="max-height:400px;overflow-y:auto;">
+                    {% for ag in agendamentos_hoje %}
+                    <div class="d-flex align-items-start gap-3 p-3 rounded-2 mb-2 {% if ag == proximo %}border-2 border-primary{% else %}border-1 border-light{% endif %}" style="background:rgba(var(--bs-primary-rgb), 0.05);">
+                        <div class="text-center" style="min-width:60px;">
+                            <div class="fw-bold text-primary" style="font-size:1.1rem;">{{ ag.data_hora|date:"H:i" }}</div>
+                            <div class="text-muted small">{{ ag.data_hora|date:"d/m" }}</div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="fw-bold text-dark">{{ ag.paciente.nome }}</div>
+                            <div class="text-muted small" style="font-size:.75rem;">
+                                <i class="bi bi-building me-1"></i>{{ ag.clinica.nome }}
+                            </div>
+                            {% if ag.observacoes %}
+                            <div class="text-muted small mt-1">{{ ag.observacoes|truncatewords:10 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="text-end">
+                            {% if ag == proximo %}
+                            <span class="badge bg-success"><i class="bi bi-play-fill me-1"></i>Próximo</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ ag.status }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-calendar-x display-5 text-muted d-block mb-2"></i>
+                        <p class="text-muted">Nenhuma consulta agendada para hoje</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Alertas e Próximos 7 Dias -->
+        <div class="col-lg-6">
+            <!-- Alertas de Conflito -->
+            {% if conflitos %}
+            <div class="card glass-card border-0 border-start border-4 border-danger mb-3">
+                <div class="card-header bg-white border-bottom pt-3 pb-0 border-0">
+                    <h6 class="fw-bold text-danger mb-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Alertas de Conflito</h6>
+                </div>
+                <div class="card-body p-3">
+                    {% for a, b in conflitos %}
+                    <div class="alert alert-danger mb-2" style="font-size:.85rem;padding:.65rem .9rem;">
+                        <strong>{{ a.paciente.nome }}</strong> ({{ a.data_hora|time:"H:i" }}) e
+                        <strong>{{ b.paciente.nome }}</strong> ({{ b.data_hora|time:"H:i" }}) estão com menos de 30 min de diferença!
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Agendamentos Pendentes -->
+            {% if agendamentos_pendentes %}
+            <div class="card glass-card border-0 border-start border-4 border-warning mb-3">
+                <div class="card-header bg-white border-bottom pt-3 pb-0 border-0">
+                    <h6 class="fw-bold text-warning mb-3"><i class="bi bi-hourglass-split me-2"></i>Agendamentos Pendentes ({{ total_pendentes }})</h6>
+                </div>
+                <div class="card-body p-3" style="max-height:200px;overflow-y:auto;">
+                    {% for ag in agendamentos_pendentes|slice:":5" %}
+                    <div class="d-flex align-items-center gap-2 p-2 rounded mb-2" style="background:rgba(255,193,7,0.1);">
+                        <div style="font-size:.8rem;font-weight:700;color:#ff9800;">
+                            {{ ag.data_hora|date:"d/m H:i" }}
+                        </div>
+                        <div style="font-size:.85rem;">
+                            <strong>{{ ag.paciente.nome }}</strong>
+                        </div>
+                        <a href="{% url 'agendamento_confirmar' ag.id %}" class="btn btn-sm btn-success rounded-pill ms-auto" style="padding:.25rem .5rem;font-size:.75rem;">Confirmar</a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Próximos 7 Dias -->
+            <div class="card glass-card border-0">
+                <div class="card-header bg-white border-bottom pt-3 pb-0 border-0">
+                    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-calendar-week me-2 text-primary"></i>Próximos 7 Dias</h6>
+                </div>
+                <div class="card-body p-3" style="max-height:250px;overflow-y:auto;">
+                    {% for ag in proximos_7_dias %}
+                    <div class="d-flex align-items-center gap-2 p-2 rounded mb-2" style="background:rgba(var(--bs-primary-rgb), 0.05);">
+                        <div style="font-size:.85rem;font-weight:700;color:var(--primary);">
+                            {{ ag.data_hora|date:"d/m H:i" }}
+                        </div>
+                        <div style="font-size:.85rem;">
+                            <strong>{{ ag.paciente.nome }}</strong>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center py-3 mb-0" style="font-size:.875rem;">Nenhum agendamento nos próximos 7 dias</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+{% block extra_js %}
+<script>
+(function(){
+    var INTERVAL = 60; // segundos para auto-atualizar
+    var remaining = INTERVAL;
+
+    // Mostrar hora da última atualização
+    var now = new Date();
+    var h = now.getHours().toString().padStart(2,'0');
+    var m = now.getMinutes().toString().padStart(2,'0');
+    var el = document.getElementById('ultima-atualizacao');
+    if(el) el.textContent = 'Última atualização: ' + h + ':' + m;
+
+    // Countdown e auto-reload
+    var countEl = document.getElementById('refresh-countdown');
+    var timer = setInterval(function(){
+        remaining--;
+        if(countEl) countEl.textContent = '(' + remaining + 's)';
+        if(remaining <= 0){ clearInterval(timer); location.reload(); }
+    }, 1000);
+
+    // Ao voltar para a aba, recarrega se passou mais de 2 min
+    var hiddenAt = null;
+    document.addEventListener('visibilitychange', function(){
+        if(document.hidden){ hiddenAt = Date.now(); }
+        else if(hiddenAt && (Date.now() - hiddenAt) > 120000){ location.reload(); }
+    });
+})();
+</script>
+{% endblock %}

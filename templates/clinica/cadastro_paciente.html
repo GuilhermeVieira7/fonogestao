@@ -1,30 +1,162 @@
 {% extends 'base.html' %}
 
-{% block title %}Cadastro Paciente - FonoGestão{% endblock %}
+{% block title %}
+{% if is_fono %}Cadastrar Novo Paciente - FonoGestão{% else %}Cadastro de Paciente - FonoGestão{% endif %}
+{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-8">
+    <div class="col-lg-8">
+        {% if is_fono %}
+        <!-- TELA DO PROFISSIONAL (FONOAUDIÓLOGO) -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <a href="{% url 'dashboard_fono' %}" class="text-muted text-decoration-none mb-2 d-inline-block">
+                    <i class="bi bi-arrow-left me-1"></i> Voltar ao Painel
+                </a>
+                <h2 class="text-primary fw-bold mb-0">
+                    <i class="bi bi-person-plus-fill me-2"></i>Cadastrar Novo Paciente
+                </h2>
+                <p class="text-muted mt-1">Preencha os dados cadastrais do paciente para iniciar o prontuário, acompanhamento e agendamentos.</p>
+            </div>
+        </div>
+
+        <div class="card glass-card border-0 p-4 mb-4">
+            <!-- Card do Profissional Responsável -->
+            <div class="d-flex align-items-center gap-3 p-3 bg-light rounded-3 mb-4 border">
+                <div class="sidebar-avatar" style="width:48px;height:48px;font-size:1.1rem;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);">
+                    {{ request.user.get_full_name|default:request.user.username|make_list|first|upper }}
+                </div>
+                <div>
+                    <div class="fw-bold text-dark fs-6">{{ request.user.get_full_name|default:request.user.username }}</div>
+                    <div class="text-muted small">
+                        Profissional Responsável &bull; {{ request.user.fonoaudiologo.especialidade }} &bull; CRFa: {{ request.user.fonoaudiologo.crfa }}
+                    </div>
+                </div>
+            </div>
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                {% if form.errors %}
+                <div class="alert alert-danger alert-dismissible fade show mb-4" role="alert">
+                    <i class="bi bi-exclamation-circle me-2"></i><strong>Por favor, corrija os erros abaixo:</strong>
+                    <ul class="mb-0 mt-2 small">
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% endif %}
+
+                <!-- Seção 1: Clínica -->
+                <h6 class="fw-bold text-primary text-uppercase mb-3">
+                    <i class="bi bi-building me-1"></i> 1. Unidade de Atendimento
+                </h6>
+                <div class="mb-4">
+                    <label class="form-label text-muted">Clínica Vinculada *</label>
+                    {{ form.clinica }}
+                    <div class="form-text text-muted">Selecione em qual das suas clínicas cadastradas este paciente será atendido.</div>
+                </div>
+
+                <!-- Seção 2: Dados Pessoais do Paciente -->
+                <h6 class="fw-bold text-primary text-uppercase mb-3">
+                    <i class="bi bi-person-badge me-1"></i> 2. Dados do Paciente
+                </h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-12">
+                        <label class="form-label text-muted">Nome Completo do Paciente *</label>
+                        {{ form.nome }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Data de Nascimento *</label>
+                        {{ form.data_nascimento }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">CPF (Paciente ou Responsável) *</label>
+                        {{ form.cpf }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted">Nome do Responsável (se menor de idade)</label>
+                        {{ form.nome_responsavel }}
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted">Histórico Clínico / Queixa Inicial</label>
+                        {{ form.historico_clinico }}
+                    </div>
+                </div>
+
+                <!-- Seção 3: Acesso ao Portal do Paciente -->
+                <h6 class="fw-bold text-primary text-uppercase mb-3">
+                    <i class="bi bi-key me-1"></i> 3. Acesso do Paciente ao Portal
+                </h6>
+                <div class="p-3 bg-light rounded-3 border mb-4">
+                    <div class="form-check form-switch mb-3">
+                        {{ form.criar_acesso }}
+                        <label class="form-check-label fw-bold text-dark ms-2" for="criarAcessoCheck">
+                            Criar conta de acesso para o paciente/responsável
+                        </label>
+                        <div class="text-muted small mt-1 ms-2">
+                            Permite que o paciente acesse a <strong>Área do Paciente</strong> para visualizar materiais, exercícios e evolução.
+                        </div>
+                    </div>
+
+                    <div id="acessoFields" class="row g-3 pt-2 border-top">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Nome de Usuário (Login do Paciente)</label>
+                            {{ form.username }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Senha Inicial de Acesso</label>
+                            {{ form.password }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botões de Ação -->
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <a href="{% url 'dashboard_fono' %}" class="btn btn-outline-secondary rounded-pill px-4">
+                        Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-primary rounded-pill px-5 fw-bold">
+                        <i class="bi bi-check-lg me-1"></i> Salvar e Cadastrar Paciente
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {% else %}
+        <!-- TELA PÚBLICA DE AUTO-CADASTRO (PACIENTE) -->
         <div class="card glass-card p-4">
             <div class="text-center mb-4">
-                <i class="bi bi-person-hearts text-secondary display-4"></i>
-                <h3 class="text-secondary mt-2">Sou Paciente / Responsável</h3>
-                <p class="text-muted">Crie sua conta para acessar seus materiais e acompanhar seu desempenho.</p>
+                <i class="bi bi-person-hearts text-primary display-4"></i>
+                <h3 class="text-primary mt-2">Sou Paciente / Responsável</h3>
+                <p class="text-muted">Crie sua conta para acessar seus materiais e acompanhar seu desempenho com seu fonoaudiólogo.</p>
             </div>
             
-            <form method="post">
+            <form method="post" novalidate>
                 {% csrf_token %}
                 {% if form.errors %}
-                <div class="alert alert-danger">
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
                     Por favor, corrija os erros abaixo.
                     {{ form.errors }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
                 {% endif %}
                 
-                <h5 class="text-secondary mb-3">Seu Fonoaudiólogo(a)</h5>
-                <div class="mb-4">
-                    <label class="form-label text-muted">Selecione o profissional que te atende:</label>
-                    {{ form.fonoaudiologo }}
+                <h5 class="text-secondary mb-3"><i class="bi bi-building me-2"></i>Clínica e Profissional Responsável</h5>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Clínica de Atendimento *</label>
+                        {{ form.clinica }}
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted">Profissional / Fonoaudiólogo(a) *</label>
+                        {{ form.fonoaudiologo }}
+                    </div>
                 </div>
 
                 <h5 class="text-secondary mb-3">Dados de Acesso</h5>
@@ -63,14 +195,39 @@
                     {{ form.historico_clinico }}
                 </div>
 
-                <div class="d-grid mt-4">
-                    <button type="submit" class="btn btn-secondary py-2 fw-bold text-white" style="background-color: var(--secondary-medical); border-color: var(--secondary-medical);">Criar Conta de Paciente</button>
+                <div class="d-flex gap-2 mt-4">
+                    <a href="{% url 'login' %}" class="btn btn-outline-secondary rounded-pill px-4">
+                        <i class="bi bi-arrow-left me-2"></i>Voltar
+                    </a>
+                    <button type="submit" class="btn btn-primary flex-grow-1 py-2 fw-600 rounded-pill">
+                        <i class="bi bi-person-check-fill me-2"></i>Criar Conta de Paciente
+                    </button>
                 </div>
                 <div class="text-center mt-3">
                     <a href="{% url 'login' %}" class="text-muted text-decoration-none small">Já possui uma conta? Entrar</a>
                 </div>
             </form>
         </div>
+        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleAcessoFields() {
+    var check = document.getElementById('criarAcessoCheck');
+    var fields = document.getElementById('acessoFields');
+    if (check && fields) {
+        if (check.checked) {
+            fields.style.display = 'flex';
+        } else {
+            fields.style.display = 'none';
+        }
+    }
+}
+document.addEventListener('DOMContentLoaded', function() {
+    toggleAcessoFields();
+});
+</script>
 {% endblock %}

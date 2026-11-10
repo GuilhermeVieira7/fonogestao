@@ -1,0 +1,8 @@
+<label for="{{ campo.id_for_label }}" class="form-label fw-bold text-primary">
+    {% if icone %}<i class="bi {{ icone }} me-2"></i>{% endif %}{{ campo.label }}
+</label>
+{{ campo }}
+{% if campo.help_text %}<div class="form-text small">{{ campo.help_text }}</div>{% endif %}
+{% if campo.errors %}
+<div class="text-danger small mt-1">{% for error in campo.errors %}{{ error }}<br>{% endfor %}</div>
+{% endif %}

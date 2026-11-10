@@ -13,8 +13,9 @@
             
             <form method="post" class="mt-4">
                 {% csrf_token %}
+                <input type="hidden" name="next" value="{{ voltar_url }}">
                 <div class="d-flex justify-content-center gap-2">
-                    <a href="{% url 'dashboard_fono' %}" class="btn btn-outline-secondary rounded-pill px-4">Voltar</a>
+                    <a href="{{ voltar_url }}" class="btn btn-outline-secondary rounded-pill px-4">Voltar</a>
                     <button type="submit" class="btn btn-danger rounded-pill px-4">Sim, Excluir</button>
                 </div>
             </form>

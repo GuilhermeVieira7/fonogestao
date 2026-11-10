@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Rejeitar Agendamento - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-0 shadow">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-exclamation-circle text-warning display-3 d-block mb-3"></i>
+                        <h4 class="fw-bold text-dark">Rejeitar Agendamento</h4>
+                    </div>
+
+                    <div class="p-4 bg-light rounded mb-4">
+                        <h6 class="fw-bold text-primary mb-3">Detalhes da Consulta</h6>
+                        <p class="mb-2"><strong>Paciente:</strong> {{ object.paciente.nome }}</p>
+                        <p class="mb-2"><strong>Data e Hora:</strong> {{ object.data_hora|date:"d/m/Y - H:i" }}</p>
+                        {% if object.clinica %}
+                        <p class="mb-2"><strong>Clínica:</strong> {{ object.clinica.nome }}</p>
+                        {% endif %}
+                        {% if object.observacoes %}
+                        <p class="mb-0"><strong>Observações do Paciente:</strong> {{ object.observacoes }}</p>
+                        {% endif %}
+                    </div>
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.motivo_rejeicao.id_for_label }}" class="form-label fw-bold text-primary">
+                                <i class="bi bi-chat-dots me-2"></i> Motivo da Rejeição
+                            </label>
+                            {{ form.motivo_rejeicao }}
+                            {% if form.motivo_rejeicao.errors %}
+                                <div class="invalid-feedback d-block">
+                                    {{ form.motivo_rejeicao.errors }}
+                                </div>
+                            {% endif %}
+                            <small class="text-muted d-block mt-2">O paciente receberá este motivo em sua notificação</small>
+                        </div>
+
+                        <button type="submit" class="btn btn-danger btn-lg rounded-pill w-100 mb-2">
+                            <i class="bi bi-x-circle me-2"></i> Rejeitar Agendamento
+                        </button>
+                        <a href="{% url 'agendamentos_pendentes' %}" class="btn btn-outline-secondary btn-lg rounded-pill w-100">
+                            <i class="bi bi-arrow-left me-2"></i> Voltar
+                        </a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control {
+        border-radius: 8px;
+        border: 1px solid #e0e0e0;
+    }
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+</style>
+{% endblock %}

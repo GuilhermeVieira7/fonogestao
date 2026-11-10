@@ -2,118 +2,125 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Relatório de Evolução</title>
-<style>
-    @page {
-        size: a4 portrait;
-        margin: 2cm;
-        @frame footer {
-            -pdf-frame-content: footerContent;
-            bottom: 1cm;
-            margin-left: 2cm;
-            margin-right: 2cm;
-            height: 1cm;
-        }
-    }
-    body {
-        font-family: Helvetica, sans-serif;
-        color: #333;
-        font-size: 11pt;
-    }
-    .header {
-        text-align: center;
-        border-bottom: 2px solid #00796b;
-        padding-bottom: 10px;
-        margin-bottom: 20px;
-    }
-    .header h1 {
-        color: #00796b;
-        margin: 0;
-        font-size: 24pt;
-    }
-    .header p {
-        margin: 0;
-        color: #666;
-    }
-    .info-box {
-        background-color: #f0f4f8;
-        padding: 15px;
-        border-radius: 5px;
-        margin-bottom: 20px;
-    }
-    .info-box p {
-        margin: 5px 0;
-    }
-    h2 {
-        color: #004c40;
-        border-bottom: 1px solid #ccc;
-        padding-bottom: 5px;
-    }
-    .consulta-item {
-        margin-bottom: 15px;
-        page-break-inside: avoid;
-    }
-    .consulta-header {
-        background-color: #e0f2f1;
-        padding: 5px 10px;
-        font-weight: bold;
-        color: #004c40;
-    }
-    .consulta-body {
-        padding: 10px;
-        border: 1px solid #e0f2f1;
-    }
-    .footer {
-        text-align: center;
-        font-size: 9pt;
-        color: #999;
-    }
-</style>
+<title>Prontuário Fonoaudiológico - {{ paciente.nome }}</title>
+{% include 'clinica/pdfs/_estilos.html' %}
 </head>
 <body>
 
-<div class="header">
-    <h1>FonoGestão Clínica</h1>
-    <p>Relatório de Evolução Clínica</p>
+{% include 'clinica/pdfs/_cabecalho.html' %}
+
+<h1 class="titulo">Relatório de Evolução Clínica</h1>
+<div class="subtitulo">Prontuário fonoaudiológico com histórico de atendimentos e evolução do desempenho do paciente.</div>
+
+<!-- 1. Identificação -->
+<div class="secao">
+    <div class="secao-titulo">1. IDENTIFICAÇÃO DO PACIENTE</div>
+    <table class="dados">
+        <tr>
+            <td class="rotulo">Nome</td><td class="valor" colspan="3"><b>{{ paciente.nome }}</b></td>
+        </tr>
+        <tr>
+            <td class="rotulo">CPF</td><td class="valor">{{ paciente.cpf }}</td>
+            <td class="rotulo">Nascimento</td><td class="valor">{{ paciente.data_nascimento|date:"d/m/Y" }}{% if idade is not None %} ({{ idade }} ano{{ idade|pluralize }}){% endif %}</td>
+        </tr>
+        <tr>
+            <td class="rotulo">Responsável</td><td class="valor">{{ paciente.nome_responsavel|default:"Não informado" }}</td>
+            <td class="rotulo">Paciente desde</td><td class="valor">{{ paciente.criado_em|date:"d/m/Y" }}</td>
+        </tr>
+        <tr>
+            <td class="rotulo">Clínica</td><td class="valor" colspan="3">{{ paciente.clinica.nome|default:"Não vinculada" }}</td>
+        </tr>
+    </table>
 </div>
 
-<div class="info-box">
-    <p><strong>Paciente:</strong> {{ paciente.nome }}</p>
-    <p><strong>CPF:</strong> {{ paciente.cpf }}</p>
-    <p><strong>Data de Nascimento:</strong> {{ paciente.data_nascimento|date:"d/m/Y" }}</p>
-    {% if paciente.nome_responsavel %}
-    <p><strong>Responsável:</strong> {{ paciente.nome_responsavel }}</p>
-    {% endif %}
-    <p><strong>Fonoaudiólogo(a):</strong> {{ paciente.fonoaudiologo.user.get_full_name }} (CRFa: {{ paciente.fonoaudiologo.crfa }})</p>
+<!-- 2. Profissional -->
+<div class="secao">
+    <div class="secao-titulo">2. PROFISSIONAL RESPONSÁVEL</div>
+    <table class="dados">
+        <tr>
+            <td class="rotulo">Fonoaudiólogo(a)</td><td class="valor"><b>{{ fono_nome }}</b></td>
+            <td class="rotulo">CRFa</td><td class="valor">{{ fono.crfa }}</td>
+        </tr>
+        <tr>
+            <td class="rotulo">Especialidade</td><td class="valor">{{ fono.especialidade|default:"—" }}</td>
+            <td class="rotulo">Contato</td><td class="valor">{{ fono.telefone|default:"—" }}{% if fono.user.email %}<br>{{ fono.user.email }}{% endif %}</td>
+        </tr>
+    </table>
 </div>
 
-<h2>Histórico Clínico</h2>
-<p>{{ paciente.historico_clinico|linebreaks }}</p>
+<!-- 3. Resumo -->
+<div class="secao">
+    <div class="secao-titulo">3. RESUMO DO ACOMPANHAMENTO</div>
+    <table class="indicadores">
+        <tr>
+            <td><div class="ind-valor">{{ resumo.total }}</div><div class="ind-rotulo">SESSÕES REGISTRADAS</div></td>
+            <td><div class="ind-valor">{{ resumo.primeira|date:"d/m/Y"|default:"—" }}</div><div class="ind-rotulo">PRIMEIRA SESSÃO</div></td>
+            <td><div class="ind-valor">{{ resumo.ultima|date:"d/m/Y"|default:"—" }}</div><div class="ind-rotulo">ÚLTIMA SESSÃO</div></td>
+            <td><div class="ind-valor">{% if resumo.media is not None %}{{ resumo.media|floatformat:1 }}{% else %}—{% endif %}</div><div class="ind-rotulo">MÉDIA DE DESEMPENHO (0-10)</div></td>
+            <td><div class="ind-valor">{{ resumo.tendencia }}</div><div class="ind-rotulo">TENDÊNCIA</div></td>
+        </tr>
+    </table>
+</div>
 
-<h2>Consultas e Evolução</h2>
-{% if consultas %}
-    {% for consulta in consultas %}
-    <div class="consulta-item">
-        <div class="consulta-header">
-            Data: {{ consulta.data_hora|date:"d/m/Y H:i" }} | Nota de Desempenho: {{ consulta.desempenho_nota }}/10
-        </div>
-        <div class="consulta-body">
-            <p><strong>Observações:</strong> {{ consulta.observacoes }}</p>
-            {% if consulta.plano_acao %}
-            <p><strong>Plano de Ação:</strong> {{ consulta.plano_acao }}</p>
-            {% endif %}
-        </div>
+<!-- 4. Histórico clínico -->
+<div class="secao">
+    <div class="secao-titulo">4. HISTÓRICO CLÍNICO / QUEIXA PRINCIPAL</div>
+    <div class="caixa">
+        {% if paciente.historico_clinico %}{{ paciente.historico_clinico|linebreaksbr }}{% else %}<span class="muted">Nenhum histórico clínico registrado.</span>{% endif %}
     </div>
+</div>
+
+<!-- 5. Sessões -->
+<div class="secao">
+    <div class="secao-titulo">5. REGISTRO DE SESSÕES E EVOLUÇÃO</div>
+    {% for consulta in consultas %}
+    <table class="sessao">
+        <tr class="sessao-cab">
+            <td width="50%">Sessão {{ forloop.counter }} &middot; {{ consulta.data_hora|date:"d/m/Y" }} às {{ consulta.data_hora|date:"H:i" }}</td>
+            <td class="nota">Desempenho {{ consulta.desempenho_nota }}/10 &middot; <span class="qualit">{{ consulta.desempenho_qualitativo }}</span></td>
+        </tr>
+        <tr class="sessao-corpo">
+            <td colspan="2">
+                <b>Observações clínicas:</b><br>{{ consulta.observacoes|linebreaksbr }}
+                {% if consulta.plano_acao %}<br><br><b>Plano de ação / atividades:</b><br>{{ consulta.plano_acao|linebreaksbr }}{% endif %}
+            </td>
+        </tr>
+    </table>
+    {% empty %}
+    <div class="caixa muted">Nenhuma sessão registrada até o momento.</div>
     {% endfor %}
-{% else %}
-    <p>Nenhuma consulta registrada até o momento.</p>
-{% endif %}
+</div>
+
+<!-- Assinatura -->
+<table class="assinaturas">
+    <tr>
+        <td width="50%">
+            <div class="linha-assinatura">
+                <b>{{ fono_nome }}</b><br>
+                <span class="pequeno muted">Fonoaudiólogo(a) &middot; CRFa {{ fono.crfa }}</span>
+            </div>
+        </td>
+        <td width="50%">
+            <div class="linha-assinatura">
+                {% if clinica.cidade %}{{ clinica.cidade }}/{{ clinica.estado }}, {% endif %}{{ emitido_em|date:"d \d\e F \d\e Y" }}<br>
+                <span class="pequeno muted">Local e data</span>
+            </div>
+        </td>
+    </tr>
+</table>
 
 <div id="footerContent">
-    <div class="footer">
-        Gerado por FonoGestão - Sistema Integrado de Fonoaudiologia
-        <br>Página <pdf:pagenumber> de <pdf:pagecount>
-    </div>
+    <table class="rodape">
+        <tr>
+            <td width="78%">
+                <b>Documento confidencial.</b> Contém dados pessoais de saúde protegidos pela Lei Geral de Proteção de Dados (Lei nº 13.709/2018) e pelo sigilo profissional do Código de Ética da Fonoaudiologia. Uso restrito ao paciente, responsável legal e profissionais autorizados.
+            </td>
+            <td width="22%" style="text-align: right;">
+                Nº {{ numero_documento }}<br>
+                Página <pdf:pagenumber> de <pdf:pagecount>
+            </td>
+        </tr>
+    </table>
 </div>
 
 </body>

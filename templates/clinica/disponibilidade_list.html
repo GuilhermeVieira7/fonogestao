@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Horários de Disponibilidade - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="{% url 'dashboard_fono' %}" class="text-muted text-decoration-none mb-2 d-inline-block"><i class="bi bi-arrow-left"></i> Voltar</a>
+        <h2 class="text-primary fw-bold mb-0">Meus Horários de Disponibilidade</h2>
+        <p class="text-muted mt-1">Gerencie seus horários de atendimento nas clínicas.</p>
+    </div>
+    <div>
+        <a href="{% url 'disponibilidade_create' %}" class="btn btn-primary rounded-pill px-4">
+            <i class="bi bi-plus-lg me-2"></i> Novo Horário
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card glass-card border-0">
+            <div class="card-body p-4">
+                {% if disponibilidades %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Clínica</th>
+                                <th>Dia da Semana</th>
+                                <th>Horário</th>
+                                <th>Intervalo</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for disponibilidade in disponibilidades %}
+                            <tr>
+                                <td>
+                                    <strong class="text-primary">{{ disponibilidade.clinica.nome }}</strong><br>
+                                    <small class="text-muted">{{ disponibilidade.clinica.cidade }}/{{ disponibilidade.clinica.estado }}</small>
+                                </td>
+                                <td>{{ disponibilidade.get_dia_semana_display }}</td>
+                                <td>
+                                    <i class="bi bi-clock-fill text-warning me-2"></i>
+                                    {{ disponibilidade.hora_inicio|time:"H:i" }} às {{ disponibilidade.hora_fim|time:"H:i" }}
+                                </td>
+                                <td>{{ disponibilidade.intervalo_minutos }} min</td>
+                                <td>
+                                    {% if disponibilidade.ativo %}
+                                    <span class="badge bg-success">Ativo</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Inativo</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'disponibilidade_update' disponibilidade.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-2">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'disponibilidade_delete' disponibilidade.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-2">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                {% if is_paginated %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">Primeira</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Última</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                {% else %}
+                <div class="alert alert-info text-center py-5 border-0">
+                    <i class="bi bi-calendar-x text-muted display-4 d-block mb-3"></i>
+                    <p class="text-muted mb-0">Nenhum horário de disponibilidade registrado. <a href="{% url 'disponibilidade_create' %}">Criar um novo</a></p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

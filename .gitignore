@@ -116,3 +116,6 @@ dmypy.json
 # OS
 .DS_Store
 Thumbs.db
+# Cópia duplicada do projeto e uploads de usuários
+/Fonoaudiologia v1/
+/media/

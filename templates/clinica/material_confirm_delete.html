@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Confirmar Exclusão de Material - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-0 shadow">
+                <div class="card-body p-5 text-center">
+                    <i class="bi bi-exclamation-triangle text-danger display-3 d-block mb-4"></i>
+                    <h4 class="fw-bold text-danger mb-3">Confirmar Exclusão</h4>
+                    <p class="text-muted mb-4">
+                        Deseja realmente excluir o material didático <strong>"{{ object.titulo }}"</strong>?
+                    </p>
+                    <p class="small text-danger mb-4">
+                        <i class="bi bi-info-circle me-2"></i> Esta ação é irreversível.
+                    </p>
+                    
+                    <form method="post" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger rounded-pill px-4">
+                            <i class="bi bi-trash me-2"></i> Sim, Excluir
+                        </button>
+                    </form>
+                    <a href="{% url 'paciente_detail' object.paciente.id %}" class="btn btn-outline-secondary rounded-pill px-4">
+                        <i class="bi bi-arrow-left me-2"></i> Cancelar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

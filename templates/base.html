@@ -1,183 +1,289 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="{{ prefs.idioma|default:'pt-br' }}" data-tema="{{ prefs.tema|default:'claro' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Gestão Fonoaudiologia{% endblock %}</title>
-    <!-- Bootstrap 5 CSS -->
+    <script>
+    /* Aplica o tema antes de desenhar a página (evita "piscar" claro→escuro). */
+    (function(){var r=document.documentElement,t=r.getAttribute('data-tema');
+    var escuro=t==='escuro'||(t==='sistema'&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches);
+    r.setAttribute('data-bs-theme',escuro?'dark':'light');})();
+    </script>
+    <title>{% block title %}FonoGestão Clínica{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <style>
         :root {
-            --primary-medical: #00796b; /* Teal */
+            --primary: #00796b;
             --primary-light: #48a999;
             --primary-dark: #004c40;
-            --secondary-medical: #0288d1; /* Light Blue */
-            --bg-color: #f0f4f8; /* Soft clinical gray-blue */
-            --card-bg: rgba(255, 255, 255, 0.95);
+            --primary-bg: #e8f5e9;
+            --accent: #0288d1;
+            --bg: #eef1f7;
+            --surface: #ffffff;
+            --surface-2: #f4f7fb;
+            --border: #dde3ef;
+            --text-main: #1a202c;
+            --text-muted: #64748b;
+            --sidebar-w: 260px;
+            --radius: 12px;
+            --shadow-sm: 0 1px 4px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+            --shadow: 0 4px 20px rgba(0,0,0,.09);
+            --shadow-lg: 0 12px 48px rgba(0,0,0,.14);
         }
-        
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: #333;
+        *{box-sizing:border-box;}
+        body{font-family:'Inter',sans-serif;background:var(--bg);background-image:radial-gradient(circle at 20% 50%,rgba(0,121,107,.04) 0%,transparent 50%),radial-gradient(circle at 80% 20%,rgba(2,136,209,.04) 0%,transparent 50%);color:var(--text-main);margin:0;}
+        .sidebar{position:fixed;top:0;left:0;width:var(--sidebar-w);height:100vh;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:1040;transition:width .25s ease,transform .25s ease;overflow:hidden;}
+        .sidebar-brand{display:flex;align-items:center;gap:10px;padding:22px 20px;text-decoration:none;border-bottom:1px solid var(--border);min-height:72px;}
+        .sidebar-logo{width:36px;height:36px;flex-shrink:0;}
+        .sidebar-brand-text{font-size:1.05rem;font-weight:700;color:var(--primary);white-space:nowrap;letter-spacing:-.4px;line-height:1.2;}
+        .sidebar-brand-sub{font-size:.65rem;font-weight:500;color:var(--text-muted);display:block;text-transform:uppercase;letter-spacing:.5px;}
+        .sidebar-nav{flex:1;overflow-y:auto;padding:12px 10px;scrollbar-width:thin;}
+        .sidebar-section-label{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);padding:8px 12px 4px;white-space:nowrap;display:block;}
+        .sidebar-link{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;text-decoration:none;color:var(--text-muted);font-size:.875rem;font-weight:500;transition:all .18s ease;white-space:nowrap;margin-bottom:2px;}
+        .sidebar-link i{font-size:1.1rem;width:22px;text-align:center;flex-shrink:0;}
+        .sidebar-link:hover{background:var(--primary-bg);color:var(--primary);}
+        .sidebar-link.active{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);color:#fff;box-shadow:0 4px 12px rgba(0,121,107,.25);}
+        .sidebar-link.active i{color:#fff;}
+        .sidebar-footer{padding:14px 16px;border-top:1px solid var(--border);}
+        .sidebar-user{display:flex;align-items:center;gap:10px;}
+        .sidebar-avatar{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0;}
+        .sidebar-user-name{font-size:.82rem;font-weight:600;color:var(--text-main);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:145px;}
+        .sidebar-user-role{font-size:.7rem;color:var(--text-muted);}
+        .topbar{display:none;position:sticky;top:0;z-index:1030;background:var(--surface);border-bottom:1px solid var(--border);padding:12px 16px;align-items:center;justify-content:space-between;}
+        .topbar-brand{display:flex;align-items:center;gap:8px;text-decoration:none;}
+        .app-shell{display:flex;min-height:100vh;}
+        .main-content{margin-left:var(--sidebar-w);flex:1;min-width:0;display:flex;flex-direction:column;transition:margin-left .25s ease;}
+        .page-wrapper{flex:1;padding:28px 32px;}
+        .page-header{margin-bottom:24px;}
+        .page-header h1,.page-header h2{font-weight:700;color:var(--text-main);margin-bottom:4px;letter-spacing:-.4px;}
+        .page-header p{color:var(--text-muted);margin-bottom:0;}
+        .card,.glass-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow-sm);transition:box-shadow .2s ease,transform .2s ease;}
+        .card:hover,.glass-card:hover{box-shadow:var(--shadow);}
+        .stat-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow-sm);padding:20px 24px;transition:box-shadow .2s,transform .2s;position:relative;overflow:hidden;}
+        .stat-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--primary),var(--primary-light));border-radius:var(--radius) var(--radius) 0 0;}
+        .stat-card:hover{box-shadow:var(--shadow);transform:translateY(-2px);}
+        .stat-card .stat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;margin-bottom:14px;}
+        .stat-card .stat-value{font-size:1.8rem;font-weight:700;color:var(--text-main);line-height:1;margin-bottom:4px;}
+        .stat-card .stat-label{font-size:.8rem;font-weight:500;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;}
+        .btn-primary{background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%) !important;border:none !important;--bs-btn-border-color:transparent !important;--bs-btn-focus-shadow-rgb:0,121,107 !important;font-weight:600;letter-spacing:.2px;box-shadow:none !important;outline:none !important;}
+        .btn-primary:hover{background:linear-gradient(135deg,var(--primary-dark) 0%,var(--primary) 100%) !important;transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,121,107,.3) !important;}
+        .btn-primary:focus,.btn-primary:active,.btn-primary:focus-visible{box-shadow:0 0 0 3px rgba(0,121,107,.25) !important;outline:none !important;border-color:transparent !important;}
+        .btn-outline-primary{color:var(--primary) !important;border-color:var(--primary) !important;--bs-btn-color:var(--primary) !important;--bs-btn-border-color:var(--primary) !important;--bs-btn-hover-bg:var(--primary) !important;--bs-btn-hover-border-color:var(--primary) !important;--bs-btn-focus-shadow-rgb:0,121,107 !important;font-weight:500;}
+        .btn-outline-primary:hover{background:var(--primary) !important;color:#fff !important;}
+        .btn-outline-primary:focus,.btn-outline-primary:active,.btn-outline-primary:focus-visible{box-shadow:0 0 0 3px rgba(0,121,107,.25) !important;outline:none !important;}
+        .form-control,.form-select{border:1px solid var(--border);border-radius:8px;font-size:.875rem;padding:.55rem .85rem;transition:border-color .15s,box-shadow .15s;}
+        .form-control:focus,.form-select:focus{border-color:var(--primary-light);box-shadow:0 0 0 3px rgba(0,121,107,.12);}
+        .form-label{font-size:.82rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px;}
+        .table{font-size:.875rem;}
+        .table thead th{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);border-bottom:2px solid var(--border);padding:10px 16px;}
+        .table tbody td{padding:12px 16px;vertical-align:middle;border-color:var(--border);}
+        .table-hover tbody tr:hover{background:var(--surface-2);}
+        .badge{font-weight:600;font-size:.72rem;letter-spacing:.3px;padding:.35em .65em;border-radius:6px;}
+        .nav-tabs{border-bottom:2px solid var(--border);}
+        .nav-tabs .nav-link{color:var(--text-muted);font-weight:500;font-size:.875rem;border:none;border-bottom:2px solid transparent;margin-bottom:-2px;padding:10px 20px;}
+        .nav-tabs .nav-link.active{color:var(--primary);border-bottom-color:var(--primary);background:transparent;font-weight:600;}
+        .timeline{border-left:2px solid var(--border);padding-left:1.5rem;margin-left:1rem;}
+        .timeline-item{position:relative;margin-bottom:2rem;}
+        .timeline-item::before{content:'';position:absolute;left:-1.85rem;top:.25rem;width:12px;height:12px;border-radius:50%;background:var(--primary);border:2px solid var(--surface);box-shadow:0 0 0 2px var(--primary-light);}
+        .messages-container{position:fixed;top:20px;right:20px;z-index:9999;width:340px;}
+        .alert{border-radius:10px;border:none;box-shadow:var(--shadow);font-size:.875rem;padding:.85rem 1.1rem;}
+        .page-footer{padding:16px 32px;color:var(--text-muted);font-size:.78rem;border-top:1px solid var(--border);background:var(--surface);}
+        .text-primary{color:var(--primary) !important;}
+        a.sidebar-user-link{display:flex;align-items:center;gap:10px;min-width:0;flex:1;text-decoration:none;border-radius:8px;padding:4px;margin:-4px;transition:background .18s ease;}
+        a.sidebar-user-link:hover{background:var(--primary-bg);}
+        .sidebar-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;}
+        /* ── Tema escuro (preferência do usuário) ── */
+        html[data-bs-theme="dark"]{--primary:#26a69a;--primary-light:#4db6ac;--primary-dark:#00897b;--primary-bg:rgba(38,166,154,.14);--bg:#0f172a;--surface:#1e293b;--surface-2:#24324a;--border:#334155;--text-main:#e2e8f0;--text-muted:#94a3b8;--bs-body-bg:#0f172a;--bs-body-color:#e2e8f0;--bs-secondary-color:#94a3b8;--bs-border-color:#334155;}
+        html[data-bs-theme="dark"] body{background-image:none;}
+        html[data-bs-theme="dark"] .bg-white,html[data-bs-theme="dark"] .card-header.bg-white{background-color:var(--surface) !important;}
+        html[data-bs-theme="dark"] .bg-light,html[data-bs-theme="dark"] .table-light,html[data-bs-theme="dark"] .table-light th,html[data-bs-theme="dark"] .input-group-text.bg-light,html[data-bs-theme="dark"] .alert-light{background-color:var(--surface-2) !important;color:var(--text-main) !important;}
+        html[data-bs-theme="dark"] .text-dark{color:var(--text-main) !important;}
+        html[data-bs-theme="dark"] .text-muted{color:var(--text-muted) !important;}
+        html[data-bs-theme="dark"] .btn-light{background:var(--surface-2);border-color:var(--border);color:var(--text-main);}
+        html[data-bs-theme="dark"] .modal-content,html[data-bs-theme="dark"] .list-group-item{background-color:var(--surface);color:var(--text-main);}
+        html[data-bs-theme="dark"] .card[style*="background-color"],html[data-bs-theme="dark"] .alert[style*="background-color"]{background-color:var(--surface-2) !important;}
+        html[data-bs-theme="dark"] .form-control,html[data-bs-theme="dark"] .form-select{background-color:var(--surface-2);color:var(--text-main);border-color:var(--border);}
+        html[data-bs-theme="dark"] .page-footer a{color:var(--text-muted) !important;}
+        @media (max-width:991px){
+            .sidebar{transform:translateX(-100%);width:var(--sidebar-w);}
+            .sidebar.open{transform:translateX(0);box-shadow:var(--shadow-lg);}
+            .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:1039;}
+            .sidebar-overlay.visible{display:block;}
+            .topbar{display:flex;}
+            .main-content{margin-left:0;}
+            .page-wrapper{padding:20px 16px;}
         }
-
-        .navbar {
-            background-color: #ffffff !important;
-            border-bottom: 2px solid var(--primary-light);
-        }
-
-        .navbar-brand {
-            font-weight: 700;
-            color: var(--primary-medical) !important;
-            letter-spacing: -0.5px;
-        }
-
-        .btn-primary {
-            background-color: var(--primary-medical);
-            border-color: var(--primary-medical);
-        }
-
-        .btn-primary:hover {
-            background-color: var(--primary-dark);
-            border-color: var(--primary-dark);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        
-        .btn-outline-primary {
-            color: var(--primary-medical);
-            border-color: var(--primary-medical);
-        }
-        
-        .btn-outline-primary:hover {
-            background-color: var(--primary-medical);
-            color: #fff;
-        }
-
-        .text-primary {
-            color: var(--primary-medical) !important;
-        }
-
-        .glass-card {
-            background: var(--card-bg);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            border: 1px solid rgba(0,0,0,0.05);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
-            transition: all 0.3s ease;
-        }
-
-        .glass-card:hover {
-            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
-            transform: translateY(-2px);
-        }
-
-        .nav-tabs .nav-link {
-            color: #555;
-            font-weight: 500;
-            border: none;
-            border-bottom: 2px solid transparent;
-        }
-        
-        .nav-tabs .nav-link.active {
-            color: var(--primary-medical);
-            background: transparent;
-            border-bottom: 2px solid var(--primary-medical);
-        }
-
-        .timeline {
-            border-left: 2px solid var(--primary-light);
-            padding-left: 1.5rem;
-            margin-left: 1rem;
-        }
-        
-        .timeline-item {
-            position: relative;
-            margin-bottom: 2rem;
-        }
-        
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            left: -1.85rem;
-            top: 0.25rem;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background-color: var(--primary-medical);
+        @media (max-width:575px){
+            .page-wrapper{padding:16px 12px;}
+            .messages-container{width:calc(100vw - 24px);right:12px;}
         }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg shadow-sm mb-5">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'home' %}">
-                <i class="bi bi-heart-pulse-fill me-2"></i>FonoGestão Clínica
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav ms-auto">
-                    {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <span class="nav-link text-dark fw-medium">
-                                <i class="bi bi-person-circle me-1"></i> {{ user.get_full_name|default:user.username }}
-                            </span>
-                        </li>
-                        <li class="nav-item">
-                            <form method="post" action="{% url 'logout' %}" class="d-inline">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-outline-danger btn-sm mt-1 ms-3 rounded-pill px-3">Sair</button>
-                            </form>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link btn btn-primary text-white rounded-pill px-4" href="{% url 'login' %}">Acesso Restrito</a>
-                        </li>
-                    {% endif %}
-                </ul>
-            </div>
+
+{% if user.is_authenticated and request.resolver_match.url_name != 'login' %}
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+    <a class="sidebar-brand" href="{% url 'home' %}">
+        <svg class="sidebar-logo" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100" height="100" rx="20" fill="#00796b"/>
+            <!-- Outer Ear Curve -->
+            <path d="M 35 43 C 32 29, 44 23, 56 25 C 67 27, 68 45, 61 61 C 55 74, 47 79, 41 77 C 37 75, 37 69, 39 65" stroke="white" stroke-width="4.5" stroke-linecap="round" fill="none" />
+            <!-- Inner Curve 1 -->
+            <path d="M 39 42 C 38 32, 46 28, 53 29 C 60 30, 62 43, 56 56 C 52 65, 47 69, 43 68" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+            <!-- Inner Curve 2 -->
+            <path d="M 43 42 C 43 36, 47 33, 51 34 C 55 35, 56 43, 52 51 C 50 55, 47 57, 44 56" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+            <!-- Inner Curve 3 -->
+            <path d="M 43 42 C 44 46, 49 49, 51 52 C 53 55, 51 59, 47 61 C 45 62, 43 64, 42 66" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+            <!-- Inner Curve 4 -->
+            <path d="M 42 50 C 39 52, 39 55, 43 58 C 45 59, 44 61, 42 63" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+        </svg>
+        <div>
+            <span class="sidebar-brand-text">FonoGestão</span>
+            <span class="sidebar-brand-sub">Clínica Profissional</span>
         </div>
+    </a>
+    <nav class="sidebar-nav">
+        {% if user.fonoaudiologo %}
+        <span class="sidebar-section-label">Principal</span>
+        <a href="{% url 'dashboard_fono' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard_fono' %}active{% endif %}">
+            <i class="bi bi-grid-1x2-fill"></i> Painel de Controle
+        </a>
+        <a href="{% url 'assistente' %}" class="sidebar-link {% if request.resolver_match.url_name == 'assistente' %}active{% endif %}">
+            <i class="bi bi-robot"></i> Assistente Inteligente
+        </a>
+        <span class="sidebar-section-label mt-2">Clínicas</span>
+        <a href="{% url 'clinica_list' %}" class="sidebar-link {% if 'clinica' in request.resolver_match.url_name %}active{% endif %}">
+            <i class="bi bi-building-fill-check"></i> Gerenciar Clínicas
+        </a>
+        <a href="{% url 'clinica_create' %}" class="sidebar-link">
+            <i class="bi bi-plus-circle-fill"></i> Nova Clínica
+        </a>
+        <span class="sidebar-section-label mt-2">Pacientes</span>
+        <a href="{% url 'dashboard_fono' %}" class="sidebar-link">
+            <i class="bi bi-people-fill"></i> Meus Pacientes
+        </a>
+        <a href="{% url 'cadastro_paciente' %}" class="sidebar-link {% if request.resolver_match.url_name == 'cadastro_paciente' %}active{% endif %}">
+            <i class="bi bi-person-plus-fill"></i> Novo Paciente
+        </a>
+        <span class="sidebar-section-label mt-2">Conta</span>
+        <a href="{% url 'termos_uso' %}" class="sidebar-link {% if request.resolver_match.url_name == 'termos_uso' %}active{% endif %}">
+            <i class="bi bi-file-text-fill"></i> Termos de Uso
+        </a>
+        <a href="{% url 'politica_privacidade' %}" class="sidebar-link {% if request.resolver_match.url_name == 'politica_privacidade' %}active{% endif %}">
+            <i class="bi bi-shield-check-fill"></i> Privacidade e LGPD
+        </a>
+        {% elif user.paciente_perfil %}
+        <span class="sidebar-section-label">Minha Area</span>
+        <a href="{% url 'area_paciente' %}" class="sidebar-link {% if request.resolver_match.url_name == 'area_paciente' %}active{% endif %}">
+            <i class="bi bi-grid-1x2-fill"></i> Minha Area
+        </a>
+        <a href="{% url 'termos_uso' %}" class="sidebar-link {% if request.resolver_match.url_name == 'termos_uso' %}active{% endif %}">
+            <i class="bi bi-file-text-fill"></i> Termos de Uso
+        </a>
+        <a href="{% url 'politica_privacidade' %}" class="sidebar-link {% if request.resolver_match.url_name == 'politica_privacidade' %}active{% endif %}">
+            <i class="bi bi-shield-check-fill"></i> Privacidade e LGPD
+        </a>
+        {% endif %}
     </nav>
+    <div class="sidebar-footer">
+        <div class="sidebar-user">
+            <a href="{% url 'perfil' %}" class="sidebar-user-link" title="Meu perfil e configurações">
+            <div class="sidebar-avatar">{% if prefs.foto_url %}<img src="{{ prefs.foto_url }}" alt="Foto de perfil">{% else %}{{ user.get_full_name|default:user.username|make_list|first|upper }}{% endif %}</div>
+            <div style="min-width:0">
+                <div class="sidebar-user-name">{{ user.get_full_name|default:user.username }}</div>
+                <div class="sidebar-user-role">{% if user.fonoaudiologo %}Fonoaudiologo(a){% elif user.paciente_perfil %}Paciente{% else %}Usuario{% endif %}</div>
+            </div>
+            </a>
+            <form method="post" action="{% url 'logout' %}" class="ms-auto">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-light rounded-circle p-1" title="Sair" style="width:32px;height:32px;">
+                    <i class="bi bi-box-arrow-right text-danger"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</aside>
+<div class="topbar" id="topbar">
+    <button class="btn btn-sm btn-light border-0" onclick="toggleSidebar()">
+        <i class="bi bi-list fs-5"></i>
+    </button>
+    <a class="topbar-brand" href="{% url 'home' %}">
+        <svg width="28" height="28" viewBox="0 0 100 100" fill="none">
+            <rect width="100" height="100" rx="20" fill="#00796b"/>
+            <!-- Outer Ear Curve -->
+            <path d="M 35 43 C 32 29, 44 23, 56 25 C 67 27, 68 45, 61 61 C 55 74, 47 79, 41 77 C 37 75, 37 69, 39 65" stroke="white" stroke-width="4.5" stroke-linecap="round" fill="none" />
+            <!-- Inner Curve 1 -->
+            <path d="M 39 42 C 38 32, 46 28, 53 29 C 60 30, 62 43, 56 56 C 52 65, 47 69, 43 68" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+            <!-- Inner Curve 2 -->
+            <path d="M 43 42 C 43 36, 47 33, 51 34 C 55 35, 56 43, 52 51 C 50 55, 47 57, 44 56" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+            <!-- Inner Curve 3 -->
+            <path d="M 43 42 C 44 46, 49 49, 51 52 C 53 55, 51 59, 47 61 C 45 62, 43 64, 42 66" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+            <!-- Inner Curve 4 -->
+            <path d="M 42 50 C 39 52, 39 55, 43 58 C 45 59, 44 61, 42 63" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
+        </svg>
+        <span style="font-weight:700;color:var(--primary);font-size:.95rem;">FonoGestao</span>
+    </a>
+    <div style="width:36px"></div>
+</div>
+<div class="app-shell">
+    <div class="main-content">
+{% else %}
+<div class="app-shell">
+    <div class="main-content" style="margin-left:0;">
+{% endif %}
 
-    <main class="container">
-        {% block content %}
-        {% endblock %}
-    </main>
+        {% if messages %}
+        <div class="messages-container">
+            {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                {% if message.tags == 'success' %}<i class="bi bi-check-circle-fill me-2"></i>{% elif message.tags == 'error' or message.tags == 'danger' %}<i class="bi bi-exclamation-triangle-fill me-2"></i>{% else %}<i class="bi bi-info-circle-fill me-2"></i>{% endif %}
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Fechar"></button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
 
-    <footer class="text-center text-muted mt-5 mb-4 small">
-        &copy; 2026 FonoGestão Premium. Todos os direitos reservados.
-    </footer>
+        <main class="page-wrapper">
+            {% block content %}{% endblock %}
+        </main>
 
-    <!-- Bootstrap 5 JS Bundle -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    {% block extra_js %}{% endblock %}
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const cpfInputs = document.querySelectorAll('input[name="cpf"], input[id*="cpf"]');
-            cpfInputs.forEach(input => {
-                input.setAttribute('maxlength', '14');
-                input.addEventListener('input', function(e) {
-                    let value = e.target.value.replace(/\D/g, '');
-                    if (value.length > 11) value = value.slice(0, 11);
-                    value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                    value = value.replace(/(\d{3})(\d)/, '$1.$2');
-                    value = value.replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                    e.target.value = value;
-                });
-            });
-        });
-    </script>
+        <footer class="page-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span>&copy; 2026 FonoGestao Clinica. Todos os direitos reservados.</span>
+            <span>
+                <a href="{% url 'termos_uso' %}" class="text-muted text-decoration-none me-3">Termos</a>
+                <a href="{% url 'politica_privacidade' %}" class="text-muted text-decoration-none">Privacidade</a>
+            </span>
+        </footer>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% block extra_js %}{% endblock %}
+<script>
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebarOverlay').classList.toggle('visible');}
+function closeSidebar(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebarOverlay').classList.remove('visible');}
+if(window.matchMedia){window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',function(e){var r=document.documentElement;if(r.getAttribute('data-tema')==='sistema'){r.setAttribute('data-bs-theme',e.matches?'dark':'light');}});}
+setTimeout(function(){document.querySelectorAll('.messages-container .alert').forEach(function(el){var a=bootstrap.Alert.getOrCreateInstance(el);a.close();});},5000);
+document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('input[name="cpf"],input[id*="cpf"]').forEach(function(i){
+        i.setAttribute('maxlength','14');
+        i.addEventListener('input',function(e){var v=e.target.value.replace(/\D/g,'').slice(0,11);v=v.replace(/(\d{3})(\d)/,'$1.$2');v=v.replace(/(\d{3})(\d)/,'$1.$2');v=v.replace(/(\d{3})(\d{1,2})$/,'$1-$2');e.target.value=v;});
+    });
+    document.querySelectorAll('input[name="cnpj"],input[id*="cnpj"]').forEach(function(i){
+        i.setAttribute('maxlength','18');
+        i.addEventListener('input',function(e){var v=e.target.value.replace(/\D/g,'').slice(0,14);v=v.replace(/^(\d{2})(\d)/,'$1.$2');v=v.replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3');v=v.replace(/\.(\d{3})(\d)/,'.$1/$2');v=v.replace(/(\d{4})(\d)/,'$1-$2');e.target.value=v;});
+    });
+    document.querySelectorAll('input[name="cep"],input[id*="cep"]').forEach(function(i){
+        i.setAttribute('maxlength','9');
+        i.addEventListener('input',function(e){var v=e.target.value.replace(/\D/g,'').slice(0,8);v=v.replace(/(\d{5})(\d)/,'$1-$2');e.target.value=v;});
+    });
+});
+</script>
 </body>
 </html>

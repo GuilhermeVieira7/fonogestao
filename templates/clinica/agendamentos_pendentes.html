@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Agendamentos Pendentes - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="{% url 'dashboard_fono' %}" class="text-muted text-decoration-none mb-2 d-inline-block"><i class="bi bi-arrow-left"></i> Voltar</a>
+        <h2 class="text-primary fw-bold mb-0">Agendamentos Pendentes</h2>
+        <p class="text-muted mt-1">Confirme ou rejeite as solicitações de consultas dos seus pacientes.</p>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-12">
+        <div class="card glass-card border-0">
+            <div class="card-body p-4">
+                {% if agendamentos %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Paciente</th>
+                                <th>Data e Hora</th>
+                                <th>Clínica</th>
+                                <th>Observações</th>
+                                <th>Solicitado em</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for agendamento in agendamentos %}
+                            <tr>
+                                <td>
+                                    <strong class="text-primary">{{ agendamento.paciente.nome }}</strong><br>
+                                    <small class="text-muted">CPF: {{ agendamento.paciente.cpf }}</small>
+                                </td>
+                                <td>
+                                    <i class="bi bi-calendar-event text-primary me-2"></i>
+                                    {{ agendamento.data_hora|date:"d/m/Y - H:i" }}
+                                </td>
+                                <td>
+                                    {% if agendamento.clinica %}
+                                    <div class="d-flex align-items-center gap-1">
+                                        <i class="bi bi-building-fill text-warning" style="font-size:.8rem;"></i>
+                                        <span>{{ agendamento.clinica.nome }}</span>
+                                    </div>
+                                    <small class="text-muted">{{ agendamento.clinica.cidade }}/{{ agendamento.clinica.estado }}</small>
+                                    {% else %}
+                                    <span class="text-muted small">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if agendamento.observacoes %}
+                                    <small>{{ agendamento.observacoes|truncatechars:50 }}</small>
+                                    {% else %}
+                                    <span class="text-muted small">Sem observações</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">{{ agendamento.criado_em|date:"d/m/Y H:i" }}</small>
+                                </td>
+                                <td>
+                                    <a href="{% url 'agendamento_confirmar' agendamento.id %}" class="btn btn-sm btn-outline-success rounded-pill px-2" title="Confirmar">
+                                        <i class="bi bi-check-lg"></i>
+                                    </a>
+                                    <a href="{% url 'agendamento_rejeitar' agendamento.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-2" title="Rejeitar">
+                                        <i class="bi bi-x-lg"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if is_paginated %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1">Primeira</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                        </li>
+                        {% endif %}
+                        
+                        {% for num in page_obj.paginator.page_range %}
+                        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                        </li>
+                        {% endfor %}
+                        
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Próxima</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Última</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                {% else %}
+                <div class="alert alert-success text-center py-5 border-0">
+                    <i class="bi bi-check-circle text-success display-4 d-block mb-3"></i>
+                    <p class="text-muted mb-0">Nenhum agendamento pendente de confirmação. Todos os agendamentos foram processados!</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

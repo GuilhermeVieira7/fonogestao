@@ -11,7 +11,7 @@
         <p class="text-muted mt-1"><i class="bi bi-person-badge me-1"></i> CPF: {{ paciente.cpf }} | Nascimento: {{ paciente.data_nascimento|date:"d/m/Y" }}</p>
     </div>
     <div>
-        <a href="{% url 'exportar_pdf' paciente.id %}" class="btn btn-outline-primary" target="_blank"><i class="bi bi-file-earmark-pdf"></i> Exportar Prontuário Completo</a>
+        <a href="{% url 'exportar_pdf' paciente.id %}" class="btn btn-outline-primary"><i class="bi bi-file-earmark-pdf"></i> Exportar Prontuário Completo</a>
     </div>
 </div>
 
@@ -20,6 +20,7 @@
         <div class="card glass-card border-0 h-100">
             <div class="card-body">
                 <h6 class="text-primary fw-bold text-uppercase mb-3">Informações Pessoais</h6>
+                <p class="mb-2"><small class="text-muted d-block">Clínica Vinculada</small> <strong><i class="bi bi-building text-primary me-1"></i>{{ paciente.clinica.nome|default:"Não vinculada" }}</strong></p>
                 {% if paciente.nome_responsavel %}
                 <p class="mb-2"><small class="text-muted d-block">Responsável</small> <strong>{{ paciente.nome_responsavel }}</strong></p>
                 {% endif %}
@@ -30,8 +31,9 @@
                     {{ paciente.historico_clinico|linebreaks|default:"Nenhum histórico registrado." }}
                 </div>
                 
-                <div class="mt-4 d-grid">
-                    <button class="btn btn-outline-primary btn-sm rounded-pill" data-bs-toggle="modal" data-bs-target="#perfilPacienteModal">Ver Ficha Cadastral Completa</button>
+                <div class="mt-4 d-grid gap-2">
+                    <a href="{% url 'paciente_editar' paciente.id %}" class="btn btn-outline-primary btn-sm rounded-pill"><i class="bi bi-pencil me-1"></i> Editar Dados / Clínica</a>
+                    <button class="btn btn-light btn-sm rounded-pill text-muted" data-bs-toggle="modal" data-bs-target="#perfilPacienteModal">Ver Ficha Cadastral</button>
                 </div>
             </div>
         </div>
@@ -42,13 +44,13 @@
             <div class="card-header bg-white pt-3 pb-0 border-bottom-0">
                 <ul class="nav nav-tabs" id="myTab" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active px-4 py-3" id="evolucao-tab" data-bs-toggle="tab" data-bs-target="#evolucao" type="button" role="tab"><i class="bi bi-graph-up text-primary me-2"></i> Evolução</button>
+                        <button class="nav-link {% if active_tab == 'evolucao' %}active{% endif %} px-4 py-3" id="evolucao-tab" data-bs-toggle="tab" data-bs-target="#evolucao" type="button" role="tab"><i class="bi bi-graph-up text-primary me-2"></i> Evolução</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link px-4 py-3" id="consultas-tab" data-bs-toggle="tab" data-bs-target="#consultas" type="button" role="tab"><i class="bi bi-journal-medical text-primary me-2"></i> Consultas</button>
+                        <button class="nav-link {% if active_tab == 'consultas' %}active{% endif %} px-4 py-3" id="consultas-tab" data-bs-toggle="tab" data-bs-target="#consultas" type="button" role="tab"><i class="bi bi-journal-medical text-primary me-2"></i> Consultas</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link px-4 py-3" id="materiais-tab" data-bs-toggle="tab" data-bs-target="#materiais" type="button" role="tab"><i class="bi bi-folder2-open text-primary me-2"></i> Material Didático</button>
+                        <button class="nav-link {% if active_tab == 'materiais' %}active{% endif %} px-4 py-3" id="materiais-tab" data-bs-toggle="tab" data-bs-target="#materiais" type="button" role="tab"><i class="bi bi-folder2-open text-primary me-2"></i> Material Didático</button>
                     </li>
                 </ul>
             </div>
@@ -57,7 +59,7 @@
                 <div class="tab-content" id="myTabContent">
                     
                     <!-- TAB EVOLUÇÃO -->
-                    <div class="tab-pane fade show active" id="evolucao" role="tabpanel">
+                    <div class="tab-pane fade {% if active_tab == 'evolucao' %}show active{% endif %}" id="evolucao" role="tabpanel">
                         <h5 class="fw-bold text-dark mb-4">Gráfico de Desempenho</h5>
                         {% if consultas %}
                         <div style="height: 300px; width: 100%;">
@@ -72,7 +74,7 @@
                     </div>
                     
                     <!-- TAB CONSULTAS -->
-                    <div class="tab-pane fade" id="consultas" role="tabpanel">
+                    <div class="tab-pane fade {% if active_tab == 'consultas' %}show active{% endif %}" id="consultas" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h5 class="fw-bold text-dark mb-0">Histórico de Consultas</h5>
                             <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#novaConsultaModal">
@@ -98,7 +100,7 @@
                     </div>
                     
                     <!-- TAB MATERIAIS -->
-                    <div class="tab-pane fade" id="materiais" role="tabpanel">
+                    <div class="tab-pane fade {% if active_tab == 'materiais' %}show active{% endif %}" id="materiais" role="tabpanel">
                         <div class="d-flex justify-content-between align-items-center mb-4">
                             <h5 class="fw-bold text-dark mb-0">Materiais Disponibilizados</h5>
                             <button class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#uploadMaterialModal">
@@ -114,11 +116,19 @@
                             {% for material in materiais %}
                             <div class="list-group-item px-0 border-light py-3">
                                 <div class="d-flex w-100 justify-content-between align-items-center">
-                                    <div>
+                                    <div class="flex-grow-1">
                                         <h6 class="mb-1 fw-bold text-primary"><i class="bi bi-file-earmark-text me-2"></i>{{ material.titulo }}</h6>
                                         <small class="text-muted">Enviado em: {{ material.data_upload|date:"d/m/Y H:i" }}</small>
                                     </div>
-                                    <a href="{{ material.arquivo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Visualizar</a>
+                                    <div class="ms-2 d-flex gap-2">
+                                        {% if material.arquivo or material.gerado_pelo_sistema %}
+                                        <a href="{% url 'material_download' material.id %}?inline=1" target="_blank" class="btn btn-sm btn-outline-secondary rounded-pill px-3">Visualizar</a>
+                                        {% endif %}
+                                        {% if material.link_externo %}
+                                        <a href="{{ material.link_externo }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary rounded-pill px-3"><i class="bi bi-link-45deg"></i> Link</a>
+                                        {% endif %}
+                                        <a href="{% url 'material_delete' material.id %}" class="btn btn-sm btn-outline-danger rounded-pill px-3" title="Excluir material"><i class="bi bi-trash"></i></a>
+                                    </div>
                                 </div>
                                 {% if material.descricao %}
                                 <p class="mb-1 mt-2 small text-muted">{{ material.descricao }}</p>
@@ -178,6 +188,7 @@
                 <p class="text-muted mb-0">Paciente desde {{ paciente.criado_em|date:"M/Y" }}</p>
                 <hr>
                 <div class="text-start">
+                    <p><strong>Clínica Vinculada:</strong> {{ paciente.clinica.nome|default:"Não vinculada" }}</p>
                     <p><strong>CPF:</strong> {{ paciente.cpf }}</p>
                     <p><strong>Data de Nascimento:</strong> {{ paciente.data_nascimento|date:"d/m/Y" }}</p>
                     {% if paciente.nome_responsavel %}
@@ -248,6 +259,16 @@
 {% block extra_js %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        {% if abrir_modal %}
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('{{ abrir_modal }}')).show();
+        {% endif %}
+        document.querySelectorAll('#myTab [data-bs-toggle="tab"]').forEach(function(btn) {
+            btn.addEventListener('shown.bs.tab', function() {
+                var url = new URL(window.location.href);
+                url.searchParams.set('tab', btn.getAttribute('data-bs-target').slice(1));
+                history.replaceState(null, '', url.pathname + url.search);
+            });
+        });
         var ctx = document.getElementById('evolucaoChart');
         if(ctx) {
             var labels = {{ chart_labels|safe|default:"[]" }};

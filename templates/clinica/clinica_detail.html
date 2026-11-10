@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% block title %}{{ clinica.nome }} - FonoGestao{% endblock %}
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <a href="{% url 'clinica_list' %}" class="text-muted text-decoration-none" style="font-size:.82rem;"><i class="bi bi-arrow-left me-1"></i>Clinicas</a>
+        </div>
+        <h2 class="mb-1">{{ clinica.nome }}</h2>
+        <span class="badge {% if clinica.ativo %}bg-success{% else %}bg-danger{% endif %}">{% if clinica.ativo %}Ativa{% else %}Inativa{% endif %}</span>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'clinica_update' clinica.pk %}" class="btn btn-outline-primary rounded-pill px-3"><i class="bi bi-pencil me-1"></i>Editar</a>
+        <a href="{% url 'clinica_delete' clinica.pk %}" class="btn btn-outline-danger rounded-pill px-3"><i class="bi bi-trash me-1"></i>Excluir</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-5">
+        <div class="card border-0 mb-4" style="box-shadow:var(--shadow-sm);">
+            <div class="card-header bg-white border-bottom" style="padding:16px 20px;">
+                <h6 class="mb-0 fw-600"><i class="bi bi-info-circle me-2 text-primary"></i>Informacoes</h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-borderless mb-0" style="font-size:.875rem;">
+                    <tr><td class="text-muted ps-4 py-2" style="width:40%">CNPJ</td><td class="fw-500 py-2">{{ clinica.cnpj }}</td></tr>
+                    <tr><td class="text-muted ps-4 py-2">Telefone</td><td class="fw-500 py-2">{{ clinica.telefone }}</td></tr>
+                    <tr><td class="text-muted ps-4 py-2">E-mail</td><td class="fw-500 py-2">{{ clinica.email }}</td></tr>
+                    <tr><td class="text-muted ps-4 py-2">Endereco</td><td class="fw-500 py-2">{{ clinica.endereco }}</td></tr>
+                    <tr><td class="text-muted ps-4 py-2">Cidade</td><td class="fw-500 py-2">{{ clinica.cidade }}/{{ clinica.estado }}</td></tr>
+                    <tr><td class="text-muted ps-4 py-2">CEP</td><td class="fw-500 py-2">{{ clinica.cep }}</td></tr>
+                    <tr><td class="text-muted ps-4 py-2">Cadastro</td><td class="fw-500 py-2">{{ clinica.criado_em|date:"d/m/Y" }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card border-0" style="box-shadow:var(--shadow-sm);">
+            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center" style="padding:16px 20px;">
+                <h6 class="mb-0 fw-600"><i class="bi bi-people-fill me-2 text-primary"></i>Fonoaudiologos Vinculados ({{ fonoaudiologos_vinculados.count }})</h6>
+            </div>
+            <div class="card-body p-3">
+                {% for fono in fonoaudiologos_vinculados %}
+                <div class="d-flex align-items-center justify-content-between p-2 rounded-2 mb-2" style="background:var(--surface-2);">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="sidebar-avatar" style="width:32px;height:32px;font-size:.8rem;">{{ fono.user.get_full_name|make_list|first|upper }}</div>
+                        <div>
+                            <div style="font-size:.875rem;font-weight:600;">{{ fono }}</div>
+                            <div style="font-size:.75rem;color:var(--text-muted);">{{ fono.especialidade }}</div>
+                        </div>
+                    </div>
+                    <form method="post" action="{% url 'desvincular_fono_clinica' clinica.pk fono.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-light text-danger rounded-pill" title="Desvincular">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </form>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center py-3 mb-0" style="font-size:.875rem;">Nenhum fonoaudiologo vinculado.</p>
+                {% endfor %}
+            </div>
+            {% if todos_fonos %}
+            <div class="card-footer bg-white border-top">
+                <form method="post" action="#" id="vincularForm">
+                    {% csrf_token %}
+                    <div class="d-flex gap-2">
+                        <select class="form-select form-select-sm" id="fonoSelect">
+                            <option value="">Selecionar fonoaudiologo...</option>
+                            {% for fono in todos_fonos %}
+                            <option value="{{ fono.pk }}">{{ fono }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" class="btn btn-sm btn-primary rounded-pill px-3" onclick="vincular()">
+                            <i class="bi bi-plus-lg me-1"></i>Vincular
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Pacientes Vinculados à Clínica -->
+        <div class="card border-0 mt-4" style="box-shadow:var(--shadow-sm);">
+            <div class="card-header bg-white border-bottom d-flex justify-content-between align-items-center" style="padding:16px 20px;">
+                <h6 class="mb-0 fw-600"><i class="bi bi-person-hearts me-2 text-primary"></i>Pacientes Vinculados a esta Clínica ({{ pacientes_vinculados.count }})</h6>
+            </div>
+            <div class="card-body p-3">
+                {% for paciente in pacientes_vinculados %}
+                <div class="d-flex align-items-center justify-content-between p-2 rounded-2 mb-2" style="background:var(--surface-2);">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="sidebar-avatar" style="width:32px;height:32px;font-size:.8rem;background:var(--primary);">
+                            {{ paciente.nome|make_list|first|upper }}
+                        </div>
+                        <div>
+                            <div style="font-size:.875rem;font-weight:600;">
+                                <a href="{% url 'paciente_detail' paciente.id %}" class="text-decoration-none text-dark">{{ paciente.nome }}</a>
+                            </div>
+                            <div style="font-size:.75rem;color:var(--text-muted);">
+                                Dr(a). {{ paciente.fonoaudiologo }} | CPF: {{ paciente.cpf }}
+                            </div>
+                        </div>
+                    </div>
+                    <a href="{% url 'paciente_detail' paciente.id %}" class="btn btn-sm btn-outline-primary rounded-pill px-3" style="font-size:.75rem;">
+                        Ver Prontuário
+                    </a>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center py-3 mb-0" style="font-size:.875rem;">Nenhum paciente vinculado a esta clínica ainda.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function vincular(){
+    var sel=document.getElementById('fonoSelect');
+    var pk=sel.value;
+    if(!pk){alert('Selecione um fonoaudiologo.');return;}
+    var url='{% url "vincular_fono_clinica" 0 0 %}'.replace('/0/vincular/0/','/'+{{ clinica.pk }}+'/vincular/'+pk+'/');
+    var form=document.createElement('form');
+    form.method='post';form.action=url;
+    var csrf=document.createElement('input');csrf.type='hidden';csrf.name='csrfmiddlewaretoken';csrf.value='{{ csrf_token }}';
+    form.appendChild(csrf);document.body.appendChild(form);form.submit();
+}
+</script>
+{% endblock %}

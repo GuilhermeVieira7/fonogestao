@@ -1,0 +1,161 @@
+{% extends 'base.html' %}
+
+{% block title %}Meu Perfil - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a href="{% url 'home' %}" class="text-muted text-decoration-none mb-2 d-inline-block"><i class="bi bi-arrow-left"></i> Voltar</a>
+        <h2 class="text-primary fw-bold mb-0">Meu Perfil</h2>
+        <p class="text-muted mt-1">Atualize sua foto, seus dados e as preferências do sistema.</p>
+    </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+    <div class="row g-4">
+        <!-- Coluna: foto -->
+        <div class="col-lg-4">
+            <div class="card glass-card border-0 h-100">
+                <div class="card-body p-4 text-center">
+                    <h6 class="text-primary fw-bold text-uppercase mb-4 text-start">Foto de Perfil</h6>
+                    <div class="mx-auto mb-3 position-relative" style="width: 128px; height: 128px;">
+                        <img id="fotoPreview" src="{{ prefs.foto_url }}" alt="Foto de perfil"
+                             class="rounded-circle shadow-sm {% if not prefs.foto_url %}d-none{% endif %}"
+                             style="width: 128px; height: 128px; object-fit: cover; border: 3px solid var(--primary-light);">
+                        <div id="fotoInicial" class="rounded-circle shadow-sm align-items-center justify-content-center text-white fw-bold {% if prefs.foto_url %}d-none{% else %}d-flex{% endif %}"
+                             style="width: 128px; height: 128px; font-size: 3rem; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);">
+                            {{ user.get_full_name|default:user.username|make_list|first|upper }}
+                        </div>
+                    </div>
+                    <h5 class="fw-bold mb-0">{{ user.get_full_name|default:user.username }}</h5>
+                    <p class="text-muted small mb-4">
+                        {% if user.fonoaudiologo %}Fonoaudiólogo(a) &middot; CRFa {{ user.fonoaudiologo.crfa }}{% elif user.paciente_perfil %}Paciente{% else %}Usuário{% endif %}
+                        <br><span class="text-muted">@{{ user.username }}</span>
+                    </p>
+
+                    <div class="text-start">
+                        <label for="{{ preferencias_form.foto.id_for_label }}" class="form-label fw-bold text-primary"><i class="bi bi-camera me-2"></i>Nova foto</label>
+                        {{ preferencias_form.foto }}
+                        <div class="form-text small">JPG, PNG ou WEBP, até 5 MB.</div>
+                        {% if preferencias_form.foto.errors %}
+                        <div class="text-danger small mt-1">{% for error in preferencias_form.foto.errors %}{{ error }}<br>{% endfor %}</div>
+                        {% endif %}
+                        {% if prefs.foto_url %}
+                        <div class="form-check mt-3">
+                            {{ preferencias_form.remover_foto }}
+                            <label class="form-check-label small" for="{{ preferencias_form.remover_foto.id_for_label }}">Remover foto atual</label>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna: dados e preferências -->
+        <div class="col-lg-8">
+            <div class="card glass-card border-0 mb-4">
+                <div class="card-body p-4">
+                    <h6 class="text-primary fw-bold text-uppercase mb-3">Informações Gerais</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">{% include 'clinica/_campo.html' with campo=dados_form.first_name icone='bi-person' %}</div>
+                        <div class="col-md-6">{% include 'clinica/_campo.html' with campo=dados_form.last_name icone='bi-person' %}</div>
+                        <div class="col-12">{% include 'clinica/_campo.html' with campo=dados_form.email icone='bi-envelope' %}</div>
+                        {% if user.fonoaudiologo %}
+                        <div class="col-md-6">{% include 'clinica/_campo.html' with campo=extra_form.telefone icone='bi-telephone' %}</div>
+                        <div class="col-md-6">{% include 'clinica/_campo.html' with campo=extra_form.data_nascimento icone='bi-calendar-event' %}</div>
+                        <div class="col-12">{% include 'clinica/_campo.html' with campo=extra_form.especialidade icone='bi-award' %}</div>
+                        {% elif user.paciente_perfil %}
+                        <div class="col-12">{% include 'clinica/_campo.html' with campo=extra_form.nome_responsavel icone='bi-people' %}</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card glass-card border-0 mb-4">
+                <div class="card-body p-4">
+                    <h6 class="text-primary fw-bold text-uppercase mb-3">Preferências do Sistema</h6>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            {% include 'clinica/_campo.html' with campo=preferencias_form.idioma icone='bi-translate' %}
+                            <div class="form-text small">Altera o idioma de datas, meses e mensagens do sistema.</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-primary"><i class="bi bi-palette me-2"></i>Tema</label>
+                            <div class="d-flex flex-column gap-2">
+                                {% for radio in preferencias_form.tema %}
+                                <label class="d-flex align-items-center gap-2 p-2 rounded border" style="cursor: pointer;" for="{{ radio.id_for_label }}">
+                                    {{ radio.tag }}
+                                    <i class="bi {% if radio.data.value == 'claro' %}bi-sun{% elif radio.data.value == 'escuro' %}bi-moon-stars{% else %}bi-circle-half{% endif %} text-primary"></i>
+                                    <span class="small">{{ radio.choice_label }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                            {% if preferencias_form.tema.errors %}
+                            <div class="text-danger small mt-1">{% for error in preferencias_form.tema.errors %}{{ error }}<br>{% endfor %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card glass-card border-0 mb-4">
+                <div class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                    <div>
+                        <h6 class="text-primary fw-bold text-uppercase mb-1">Segurança</h6>
+                        <p class="text-muted small mb-0">Altere a senha de acesso à sua conta.</p>
+                    </div>
+                    <a href="{% url 'alterar_senha' %}" class="btn btn-outline-primary rounded-pill px-4"><i class="bi bi-key me-1"></i> Alterar Senha</a>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2">
+                <a href="{% url 'home' %}" class="btn btn-outline-secondary rounded-pill px-4">Cancelar</a>
+                <button type="submit" class="btn btn-primary rounded-pill px-4"><i class="bi bi-check-circle me-1"></i> Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-check-input:checked{background-color:var(--primary);border-color:var(--primary);}
+    .form-check-input:focus{box-shadow:0 0 0 3px rgba(0,121,107,.2);border-color:var(--primary-light);}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var input = document.getElementById('{{ preferencias_form.foto.id_for_label }}');
+    var img = document.getElementById('fotoPreview');
+    var inicial = document.getElementById('fotoInicial');
+    if (input) {
+        input.addEventListener('change', function () {
+            var f = input.files && input.files[0];
+            if (!f || !f.type.match(/^image\//)) return;
+            var leitor = new FileReader();
+            leitor.onload = function (e) {
+                img.src = e.target.result;
+                img.classList.remove('d-none');
+                inicial.classList.add('d-none');
+                inicial.classList.remove('d-flex');
+            };
+            leitor.readAsDataURL(f);
+        });
+    }
+    /* Pré-visualiza o tema escolhido antes de salvar */
+    document.querySelectorAll('input[name="{{ preferencias_form.tema.html_name }}"]').forEach(function (r) {
+        r.classList.add('form-check-input', 'mt-0');
+        r.addEventListener('change', function () {
+            var escuro = r.value === 'escuro' || (r.value === 'sistema' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.setAttribute('data-tema', r.value);
+            document.documentElement.setAttribute('data-bs-theme', escuro ? 'dark' : 'light');
+        });
+    });
+    var remover = document.getElementById('{{ preferencias_form.remover_foto.id_for_label }}');
+    if (remover) remover.classList.add('form-check-input');
+});
+</script>
+{% endblock %}
