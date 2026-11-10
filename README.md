@@ -177,6 +177,15 @@ python manage.py test clinica
 4. **Cadastre horários de atendimento** em `/disponibilidades/`.
 5. **Cadastre pacientes** pelo painel do fonoaudiólogo (`/dashboard/`) ou em `/cadastro/paciente/`.
 
+### Agenda, histórico e feriados
+
+- **Consulta única ou recorrente.** Ao marcar uma consulta, informe o início e o término. Se escolher "Consultas recorrentes" com um período (em dias, meses ou anos, até 2 anos), o sistema cria uma sessão por semana, sempre no mesmo dia da semana e horário.
+- **Histórico automático.** Quando o horário de término de uma consulta confirmada passa, ela vai sozinha para o histórico do paciente como "aguardando avaliação". O profissional só registra as observações e o plano de ação, e o paciente vê a sessão depois de avaliada. Também é possível marcar "Paciente faltou".
+  - Isso acontece quando alguém abre o painel, o prontuário ou a área do paciente.
+  - Para rodar também em um agendador (cron), use `python manage.py gerar_consultas`.
+- **Feriados nacionais.** Fixos e móveis: Carnaval, Sexta-feira Santa e Corpus Christi. Eles aparecem na agenda. Para uma sessão em feriado, o paciente pode pedir a remarcação para outro dia da mesma semana, e o profissional aprova ou recusa no painel. Feriados estaduais e municipais não estão incluídos.
+- **Anexos.** Na aba Material Didático do prontuário, "Anexar PDF / Mídia" aceita PDFs prontos, imagens, áudios e vídeos de até 25 MB. Desmarque "Disponibilizar para o paciente" para guardar documentos só no prontuário.
+
 ---
 
 ## Publicar no Render (Blueprint)

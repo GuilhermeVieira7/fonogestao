@@ -15,13 +15,15 @@ from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView, View
 
-from .agenda import item_para_json, itens_agenda
-from .forms import (AgendamentoForm, ClinicaForm, ConfirmarAgendamentoForm, ConsultaForm, DisponibilidadeHorariaForm,
+from .agenda import gerar_consultas_realizadas, item_para_json, itens_agenda
+from .feriados import feriado, feriados_do_ano
+from .forms import (AgendamentoForm, AvaliacaoConsultaForm, ClinicaForm, ConfirmarAgendamentoForm, ConsultaForm, DisponibilidadeHorariaForm,
                     FonoaudiologoCadastroForm, FonoaudiologoPerfilForm, FonoCadastraPacienteForm, GerarAtividadeForm,
                     MaterialUploadForm, PacienteAgendamentoForm, PacienteCadastroForm, PacientePerfilForm,
-                    PacienteUpdateForm, PerfilPreferenciasForm, RejeitarAgendamentoForm, UsuarioDadosForm)
+                    PacienteUpdateForm, PerfilPreferenciasForm, RejeitarAgendamentoForm, SolicitacaoRemarcacaoForm,
+                    UsuarioDadosForm)
 from .models import (Agendamento, Clinica, Consulta, DisponibilidadeHoraria, Fonoaudiologo, MaterialDidatico, Paciente,
-                     PerfilUsuario, TermoAceite, TermoVersao)
+                     PerfilUsuario, SolicitacaoRemarcacao, TermoAceite, TermoVersao)
 from .utils import gerar_pdf_bytes, nome_arquivo_seguro, resposta_pdf
 
 MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho',
@@ -78,6 +80,29 @@ def calcular_idade(nascimento, referencia=None):
     return referencia.year - nascimento.year - ((referencia.month, referencia.day) < (nascimento.month, nascimento.day))
 
 
+MESES_ABREV = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+
+
+def frequencia_mensal(consultas, meses=12):
+    """Quantidade de sessões em cada um dos últimos `meses` meses (para o gráfico de frequência)."""
+    hoje = timezone.localdate()
+    chaves = []
+    ano, mes = hoje.year, hoje.month
+    for _ in range(meses):
+        chaves.append((ano, mes))
+        mes -= 1
+        if mes == 0:
+            ano, mes = ano - 1, 12
+    chaves.reverse()
+    contagem = dict.fromkeys(chaves, 0)
+    for c in consultas:
+        d = timezone.localtime(c.data_hora)
+        if (d.year, d.month) in contagem:
+            contagem[(d.year, d.month)] += 1
+    rotulos = [f'{MESES_ABREV[m - 1]}/{str(a)[2:]}' for a, m in chaves]
+    return rotulos, [contagem[k] for k in chaves]
+
+
 def contexto_atividade(material=None, paciente=None, fono=None, titulo='', conteudo='', data_atividade=None, numero=''):
     paciente = paciente or material.paciente
     fono = fono or paciente.fonoaudiologo
@@ -120,6 +145,11 @@ class DashboardFonoView(LoginRequiredMixin, FonoaudiologoRequiredMixin, ListView
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         fono = self.request.user.fonoaudiologo
+        gerar_consultas_realizadas(fonoaudiologo=fono)
+        context['consultas_para_avaliar'] = Consulta.objects.filter(
+            paciente__fonoaudiologo=fono, avaliada_em__isnull=True).select_related('paciente').order_by('data_hora')
+        context['remarcacoes_pendentes'] = SolicitacaoRemarcacao.objects.filter(
+            agendamento__fonoaudiologo=fono, status='P').select_related('agendamento__paciente').order_by('nova_data_hora')
         agendamentos = Agendamento.objects.filter(fonoaudiologo=fono).select_related('paciente', 'clinica').order_by('data_hora')
         context['agendamentos'] = agendamentos
 
@@ -153,6 +183,7 @@ class DashboardFonoView(LoginRequiredMixin, FonoaudiologoRequiredMixin, ListView
                 selected_date = hoje
 
         context['selected_date'] = selected_date
+        context['feriado_do_dia'] = feriado(selected_date)
         context['agendamentos_dia'] = itens_agenda(fono, selected_date, selected_date)
         context['prev_date'] = (selected_date - timedelta(days=1)).strftime('%Y-%m-%d')
         context['next_date'] = (selected_date + timedelta(days=1)).strftime('%Y-%m-%d')
@@ -199,15 +230,33 @@ class DashboardFonoView(LoginRequiredMixin, FonoaudiologoRequiredMixin, ListView
         fono = request.user.fonoaudiologo
         form = AgendamentoForm(request.POST, fonoaudiologo=fono)
         if form.is_valid():
-            agendamento = form.save(commit=False)
-            agendamento.fonoaudiologo = fono
+            base = form.save(commit=False)
+            datas = form.datas_das_sessoes()
+            agora = timezone.now()
             # Agendado pelo próprio profissional: já entra confirmado na agenda.
-            agendamento.status = 'A'
-            agendamento.confirmado_em = timezone.now()
-            agendamento.save()
-            messages.success(request, 'Agendamento criado com sucesso.')
-            data = timezone.localtime(agendamento.data_hora).strftime('%Y-%m-%d')
-            return redirect(url_agenda(data))
+            Agendamento.objects.bulk_create([
+                Agendamento(fonoaudiologo=fono, paciente=base.paciente, clinica=base.clinica, data_hora=quando,
+                            hora_fim=base.hora_fim, observacoes=base.observacoes, status='A', confirmado_em=agora)
+                for quando in datas
+            ])
+            inicio = timezone.localtime(datas[0])
+            if len(datas) > 1:
+                dias = ['segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado', 'domingo']
+                texto = (f'{len(datas)} sessões agendadas: toda {dias[inicio.weekday()]}, '
+                         f'das {inicio:%H:%M} às {base.hora_fim:%H:%M}, '
+                         f'de {inicio:%d/%m/%Y} a {timezone.localtime(datas[-1]):%d/%m/%Y}.')
+                em_feriado = [timezone.localtime(d) for d in datas if feriado(timezone.localtime(d))]
+                if em_feriado:
+                    texto += (f' Atenção: {len(em_feriado)} cai(em) em feriado ('
+                              + ', '.join(f'{d:%d/%m} {feriado(d)}' for d in em_feriado[:4])
+                              + ('...' if len(em_feriado) > 4 else '')
+                              + '). O paciente poderá pedir remarcação.')
+                messages.success(request, texto)
+            else:
+                aviso = feriado(inicio)
+                messages.success(request, 'Agendamento criado com sucesso.'
+                                 + (f' Atenção: a data é feriado ({aviso}).' if aviso else ''))
+            return redirect(url_agenda(inicio.strftime('%Y-%m-%d')))
         self.object_list = self.get_queryset()
         context = self.get_context_data(agendamento_form=form)
         context['active_tab'] = 'agenda'
@@ -230,6 +279,7 @@ class AgendaMensalView(LoginRequiredMixin, FonoaudiologoRequiredMixin, View):
 
         inicio = date(ano, mes, 1)
         fim = date(ano, mes, calendar.monthrange(ano, mes)[1])
+        gerar_consultas_realizadas(fonoaudiologo=request.user.fonoaudiologo)
         itens = itens_agenda(request.user.fonoaudiologo, inicio, fim)
 
         resumo = {'total': 0, 'P': 0, 'A': 0, 'R': 0, 'C': 0, 'S': 0}
@@ -249,6 +299,7 @@ class AgendaMensalView(LoginRequiredMixin, FonoaudiologoRequiredMixin, View):
             'proximo': {'ano': proximo.year, 'mes': proximo.month},
             'resumo': resumo,
             'eventos': [item_para_json(i) for i in itens],
+            'feriados': {d.isoformat(): nome for d, nome in sorted(feriados_do_ano(ano).items()) if d.month == mes},
         })
 
 
@@ -262,12 +313,15 @@ class PacienteDetailView(LoginRequiredMixin, FonoaudiologoRequiredMixin, DetailV
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        gerar_consultas_realizadas(paciente=self.object)
         context['materiais'] = self.object.materiais.all().order_by('-data_upload')
-        context['consultas'] = self.object.consultas.all().order_by('-data_hora')
-        datas = [c.data_hora.strftime("%d/%m") for c in reversed(list(context['consultas']))]
-        notas = [c.desempenho_nota for c in reversed(list(context['consultas']))]
-        context['chart_labels'] = datas
-        context['chart_data'] = notas
+        consultas = list(self.object.consultas.all().order_by('-data_hora'))
+        context['consultas'] = consultas
+        context['consultas_pendentes'] = [c for c in consultas if not c.avaliada]
+        context['ultima_consulta'] = consultas[0] if consultas else None
+        rotulos, valores = frequencia_mensal(consultas)
+        context['chart_labels'] = rotulos
+        context['chart_data'] = valores
         context.setdefault('consulta_form', ConsultaForm())
         context.setdefault('material_form', MaterialUploadForm())
         tab = self.request.GET.get('tab')
@@ -293,6 +347,7 @@ class PacienteDetailView(LoginRequiredMixin, FonoaudiologoRequiredMixin, DetailV
         if form.is_valid():
             consulta = form.save(commit=False)
             consulta.paciente = self.object
+            consulta.avaliada_em = timezone.now()
             consulta.save()
             messages.success(request, 'Consulta registrada com sucesso.')
             return redirect(reverse('paciente_detail', args=[self.object.id]) + '?tab=consultas')
@@ -308,21 +363,22 @@ class AreaPacienteView(LoginRequiredMixin, PacienteRequiredMixin, ListView):
     context_object_name = 'materiais'
 
     def get_queryset(self):
-        return MaterialDidatico.objects.filter(paciente=self.request.user.paciente_perfil).order_by('-data_upload')
+        return MaterialDidatico.objects.filter(paciente=self.request.user.paciente_perfil,
+                                               visivel_paciente=True).order_by('-data_upload')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        consultas = self.request.user.paciente_perfil.consultas.all().order_by('-data_hora')
+        paciente = self.request.user.paciente_perfil
+        gerar_consultas_realizadas(paciente=paciente)
+        # O paciente só vê a sessão depois que o profissional a avaliou.
+        consultas = paciente.consultas.filter(avaliada_em__isnull=False).order_by('-data_hora')
         context['consultas'] = consultas
+        context['agora'] = timezone.now()
         context['agendamentos'] = Agendamento.objects.filter(
             paciente=self.request.user.paciente_perfil,
             fonoaudiologo=self.request.user.paciente_perfil.fonoaudiologo,
             status__in=['A', 'P']
-        ).select_related('fonoaudiologo__user', 'clinica').order_by('data_hora')
-        datas = [c.data_hora.strftime("%d/%m") for c in reversed(list(consultas))]
-        notas = [c.desempenho_nota for c in reversed(list(consultas))]
-        context['chart_labels'] = datas
-        context['chart_data'] = notas
+        ).select_related('fonoaudiologo__user', 'clinica').prefetch_related('remarcacoes').order_by('data_hora')
         return context
 
 
@@ -354,20 +410,15 @@ class ExportarProntuarioPDFView(LoginRequiredMixin, FonoaudiologoRequiredMixin, 
             Paciente.objects.select_related('clinica', 'fonoaudiologo__user'),
             pk=pk, fonoaudiologo=request.user.fonoaudiologo,
         )
-        consultas = list(paciente.consultas.all().order_by('data_hora'))
-        notas = [c.desempenho_nota for c in consultas]
+        gerar_consultas_realizadas(paciente=paciente)
+        consultas = list(paciente.consultas.filter(avaliada_em__isnull=False).order_by('data_hora'))
+        pendentes = paciente.consultas.filter(avaliada_em__isnull=True).count()
 
-        tendencia = '—'
-        if len(notas) >= 2:
-            janela = max(1, min(3, len(notas) // 2))
-            inicio = sum(notas[:janela]) / janela
-            fim = sum(notas[-janela:]) / janela
-            if fim - inicio >= 0.5:
-                tendencia = 'Melhora'
-            elif inicio - fim >= 0.5:
-                tendencia = 'Queda'
-            else:
-                tendencia = 'Estável'
+        frequencia = None
+        if consultas:
+            primeira, ultima = timezone.localtime(consultas[0].data_hora), timezone.localtime(consultas[-1].data_hora)
+            meses = (ultima.year - primeira.year) * 12 + (ultima.month - primeira.month) + 1
+            frequencia = len(consultas) / meses
 
         emitido = timezone.localtime()
         fono = paciente.fonoaudiologo
@@ -382,8 +433,8 @@ class ExportarProntuarioPDFView(LoginRequiredMixin, FonoaudiologoRequiredMixin, 
                 'total': len(consultas),
                 'primeira': consultas[0].data_hora if consultas else None,
                 'ultima': consultas[-1].data_hora if consultas else None,
-                'media': (sum(notas) / len(notas)) if notas else None,
-                'tendencia': tendencia,
+                'frequencia': frequencia,
+                'pendentes': pendentes,
             },
             'tipo_documento': 'PRONTUÁRIO FONOAUDIOLÓGICO',
             'numero_documento': f'PRT-{paciente.pk:05d}-{emitido:%Y%m%d}',
@@ -393,6 +444,109 @@ class ExportarProntuarioPDFView(LoginRequiredMixin, FonoaudiologoRequiredMixin, 
             messages.error(request, 'Não foi possível gerar o PDF do prontuário. Tente novamente.')
             return redirect('paciente_detail', pk=paciente.pk)
         return resposta_pdf(pdf, nome_arquivo_seguro('prontuario', paciente.nome, emitido.strftime('%Y-%m-%d')))
+
+
+class ConsultaAvaliarView(LoginRequiredMixin, FonoaudiologoRequiredMixin, View):
+    """Salva a avaliação (observações e plano de ação) de uma sessão do histórico."""
+
+    def post(self, request, pk):
+        consulta = get_object_or_404(Consulta, pk=pk, paciente__fonoaudiologo=request.user.fonoaudiologo)
+        url = reverse('paciente_detail', args=[consulta.paciente_id]) + '?tab=consultas'
+        form = AvaliacaoConsultaForm(request.POST, instance=consulta)
+        if not form.is_valid():
+            messages.error(request, 'Escreva as observações da sessão para concluir a avaliação.')
+            return redirect(f'{url}&avaliar={consulta.pk}')
+        primeira_vez = not consulta.avaliada
+        consulta = form.save(commit=False)
+        consulta.avaliada_em = consulta.avaliada_em or timezone.now()
+        consulta.save()
+        messages.success(request, 'Sessão avaliada. Ela já aparece para o paciente.' if primeira_vez
+                         else 'Avaliação atualizada.')
+        return redirect(url)
+
+
+class ConsultaFaltaView(LoginRequiredMixin, FonoaudiologoRequiredMixin, View):
+    """O paciente não compareceu: tira a sessão do histórico e marca o agendamento como cancelado."""
+
+    def post(self, request, pk):
+        consulta = get_object_or_404(Consulta, pk=pk, paciente__fonoaudiologo=request.user.fonoaudiologo,
+                                     avaliada_em__isnull=True)
+        paciente_id = consulta.paciente_id
+        if consulta.agendamento_id:
+            Agendamento.objects.filter(pk=consulta.agendamento_id).update(
+                status='C', motivo_rejeicao='Paciente não compareceu.')
+        consulta.delete()
+        messages.success(request, 'Falta registrada. A sessão saiu do histórico e o agendamento ficou como cancelado.')
+        return redirect(reverse('paciente_detail', args=[paciente_id]) + '?tab=consultas')
+
+
+class SolicitarRemarcacaoView(LoginRequiredMixin, PacienteRequiredMixin, View):
+    """Paciente/responsável pede para mover uma sessão (ex.: em feriado) para outro dia da mesma semana."""
+    template_name = 'clinica/solicitar_remarcacao.html'
+
+    def agendamento(self, request, pk):
+        ag = get_object_or_404(Agendamento.objects.select_related('clinica', 'fonoaudiologo__user'), pk=pk,
+                               paciente=request.user.paciente_perfil, status__in=['A', 'P'])
+        if ag.data_hora <= timezone.now():
+            messages.error(request, 'Esta sessão já passou e não pode mais ser remarcada.')
+            return None
+        if not ag.feriado:
+            messages.error(request, 'A remarcação pelo portal está disponível para sessões que caem em feriado. '
+                                    'Para outros casos, fale com seu(sua) fonoaudiólogo(a).')
+            return None
+        if ag.remarcacao_pendente:
+            messages.info(request, 'Já existe uma solicitação de remarcação aguardando análise para esta sessão.')
+            return None
+        return ag
+
+    def get(self, request, pk):
+        ag = self.agendamento(request, pk)
+        if ag is None:
+            return redirect(reverse('area_paciente') + '#agenda')
+        return render(request, self.template_name, {'agendamento': ag, 'form': SolicitacaoRemarcacaoForm(agendamento=ag)})
+
+    def post(self, request, pk):
+        ag = self.agendamento(request, pk)
+        if ag is None:
+            return redirect(reverse('area_paciente') + '#agenda')
+        form = SolicitacaoRemarcacaoForm(request.POST, agendamento=ag)
+        if not form.is_valid():
+            return render(request, self.template_name, {'agendamento': ag, 'form': form})
+        SolicitacaoRemarcacao.objects.create(
+            agendamento=ag, data_original=ag.data_hora, nova_data_hora=form.cleaned_data['nova_data_hora'],
+            nova_hora_fim=form.cleaned_data['hora_fim'], motivo=form.cleaned_data['motivo'])
+        messages.success(request, 'Solicitação enviada! Seu(sua) fonoaudiólogo(a) vai analisar e confirmar a nova data.')
+        return redirect(reverse('area_paciente') + '#agenda')
+
+
+class ResponderRemarcacaoView(LoginRequiredMixin, FonoaudiologoRequiredMixin, View):
+    """O profissional aprova (move a sessão) ou recusa a solicitação de remarcação."""
+
+    def post(self, request, pk):
+        sol = get_object_or_404(SolicitacaoRemarcacao.objects.select_related('agendamento__paciente'), pk=pk,
+                                agendamento__fonoaudiologo=request.user.fonoaudiologo, status='P')
+        acao = request.POST.get('acao')
+        destino = destino_seguro(request, reverse('dashboard_fono'))
+        if acao == 'aprovar':
+            ag = sol.agendamento
+            ag.data_hora = sol.nova_data_hora
+            ag.hora_fim = sol.nova_hora_fim or ag.hora_fim
+            if ag.status == 'P':
+                ag.status, ag.confirmado_em = 'A', timezone.now()
+            ag.save()
+            sol.status = 'A'
+            messages.success(request, f'Sessão de {ag.paciente.nome} remarcada para '
+                                      f'{timezone.localtime(sol.nova_data_hora):%d/%m/%Y às %H:%M}.')
+        elif acao == 'recusar':
+            sol.status = 'R'
+            sol.resposta = (request.POST.get('resposta') or '').strip()[:500]
+            messages.info(request, 'Solicitação de remarcação recusada. A sessão continua na data original.')
+        else:
+            messages.error(request, 'Ação inválida.')
+            return redirect(destino)
+        sol.respondido_em = timezone.now()
+        sol.save()
+        return redirect(destino)
 
 
 class GerarAtividadePDFView(LoginRequiredMixin, FonoaudiologoRequiredMixin, View):
@@ -437,7 +591,8 @@ class MaterialDownloadView(LoginRequiredMixin, View):
         )
         user = request.user
         eh_fono = hasattr(user, 'fonoaudiologo') and material.paciente.fonoaudiologo_id == user.fonoaudiologo.id
-        eh_paciente = hasattr(user, 'paciente_perfil') and material.paciente_id == user.paciente_perfil.id
+        eh_paciente = (hasattr(user, 'paciente_perfil') and material.paciente_id == user.paciente_perfil.id
+                       and material.visivel_paciente)
         if not (eh_fono or eh_paciente):
             raise Http404('Material não encontrado.')
 

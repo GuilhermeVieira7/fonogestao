@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import FileExtensionValidator
+from django.utils import timezone
 
 
 class Clinica(models.Model):
@@ -82,6 +85,8 @@ class MaterialDidatico(models.Model):
     # Texto da atividade quando o material é gerado pelo sistema. Permite
     # regerar o PDF sempre com o modelo institucional mais recente.
     conteudo_atividade = models.TextField('Conteúdo da Atividade', blank=True)
+    # Documentos internos (laudos, exames, relatórios de outros profissionais) podem ficar só para o profissional.
+    visivel_paciente = models.BooleanField('Visível para o paciente', default=True)
     data_upload = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -112,26 +117,33 @@ class MaterialDidatico(models.Model):
 
 
 class Consulta(models.Model):
+    """
+    Sessão no histórico do paciente. É criada automaticamente quando termina o
+    horário de um agendamento confirmado (fica "aguardando avaliação") ou
+    registrada manualmente pelo profissional. O paciente só a vê depois de avaliada.
+    """
     paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='consultas')
+    agendamento = models.OneToOneField(
+        'Agendamento', on_delete=models.SET_NULL, null=True, blank=True, related_name='consulta',
+        verbose_name='Agendamento de origem')
     data_hora = models.DateTimeField('Data e Hora da Consulta')
-    desempenho_nota = models.IntegerField('Nota de Desempenho (1 a 10)', help_text="Nota de 1 a 10 para o gráfico de evolução")
-    observacoes = models.TextField('Observações da Consulta')
+    hora_fim = models.TimeField('Horário de término', null=True, blank=True)
+    observacoes = models.TextField('Observações da Consulta', blank=True)
     plano_acao = models.TextField('Plano de Ação / Atividades', blank=True)
+    avaliada_em = models.DateTimeField('Avaliada em', null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Consulta {self.paciente.nome} - {self.data_hora.strftime('%d/%m/%Y')}"
 
     @property
-    def desempenho_qualitativo(self):
-        if self.desempenho_nota <= 3:
-            return 'Em Desenvolvimento'
-        elif self.desempenho_nota <= 6:
-            return 'Regular'
-        elif self.desempenho_nota <= 8:
-            return 'Bom'
-        else:
-            return 'Excelente'
+    def avaliada(self):
+        return self.avaliada_em is not None
+
+
+# Duração usada quando um agendamento antigo não tem horário de término.
+DURACAO_PADRAO_MINUTOS = 50
+
 
 class Agendamento(models.Model):
     STATUS_CHOICES = [
@@ -144,6 +156,7 @@ class Agendamento(models.Model):
     paciente = models.ForeignKey(Paciente, on_delete=models.CASCADE, related_name='agendamentos_paciente')
     clinica = models.ForeignKey(Clinica, on_delete=models.SET_NULL, null=True, blank=True, related_name='agendamentos', verbose_name='Clínica')
     data_hora = models.DateTimeField('Data e Hora')
+    hora_fim = models.TimeField('Horário de término', null=True, blank=True)
     status = models.CharField('Status', max_length=1, choices=STATUS_CHOICES, default='P')
     observacoes = models.TextField('Observações', blank=True)
     motivo_rejeicao = models.TextField('Motivo da Rejeição', blank=True, null=True)
@@ -152,6 +165,52 @@ class Agendamento(models.Model):
 
     def __str__(self):
         return f"{self.paciente.nome} - {self.data_hora.strftime('%d/%m/%Y %H:%M')}"
+
+    @property
+    def fim(self):
+        """Data e hora (com fuso) em que a consulta termina."""
+        inicio = timezone.localtime(self.data_hora)
+        if self.hora_fim:
+            fim = inicio.replace(hour=self.hora_fim.hour, minute=self.hora_fim.minute, second=0, microsecond=0)
+            if fim > inicio:
+                return fim
+        return inicio + timedelta(minutes=DURACAO_PADRAO_MINUTOS)
+
+    @property
+    def feriado(self):
+        """Nome do feriado nacional na data da sessão, ou None."""
+        from .feriados import feriado
+        return feriado(timezone.localtime(self.data_hora))
+
+    @property
+    def remarcacao_pendente(self):
+        return self.remarcacoes.filter(status='P').first()
+
+
+class SolicitacaoRemarcacao(models.Model):
+    """Pedido do paciente/responsável para mover uma sessão (ex.: caiu em feriado) para outro dia da mesma semana."""
+    STATUS_CHOICES = [
+        ('P', 'Aguardando análise'),
+        ('A', 'Aprovada'),
+        ('R', 'Recusada'),
+    ]
+    agendamento = models.ForeignKey(Agendamento, on_delete=models.CASCADE, related_name='remarcacoes')
+    data_original = models.DateTimeField('Data original')
+    nova_data_hora = models.DateTimeField('Nova data e horário')
+    nova_hora_fim = models.TimeField('Novo horário de término', null=True, blank=True)
+    motivo = models.TextField('Mensagem do paciente', blank=True)
+    status = models.CharField('Status', max_length=1, choices=STATUS_CHOICES, default='P')
+    resposta = models.TextField('Resposta do profissional', blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    respondido_em = models.DateTimeField('Respondido em', null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Solicitação de Remarcação'
+        verbose_name_plural = 'Solicitações de Remarcação'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f"Remarcação {self.agendamento.paciente.nome}: {self.data_original:%d/%m} → {self.nova_data_hora:%d/%m}"
 
 
 class DisponibilidadeHoraria(models.Model):

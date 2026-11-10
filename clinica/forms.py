@@ -1,5 +1,8 @@
 from django import forms
 from django.contrib.auth.models import User
+import calendar
+from datetime import date, datetime, timedelta
+
 from django.utils import timezone
 from .models import Consulta, Agendamento, Fonoaudiologo, Paciente, MaterialDidatico, Clinica, DisponibilidadeHoraria, PerfilUsuario
 
@@ -87,56 +90,244 @@ class ClinicaForm(forms.ModelForm):
             'ativo': 'Ativa',
         }
 
+def time_widget():
+    return forms.TimeInput(attrs={'type': 'time', 'class': 'form-control'}, format='%H:%M')
+
+
+def validar_horario_termino(form, campo_inicio='data_hora', campo_fim='hora_fim'):
+    """O término precisa ser depois do início (no mesmo dia)."""
+    inicio = form.cleaned_data.get(campo_inicio)
+    fim = form.cleaned_data.get(campo_fim)
+    if inicio and fim and fim <= timezone.localtime(inicio).time():
+        form.add_error(campo_fim, 'O horário de término deve ser depois do horário de início.')
+
+
 class ConsultaForm(forms.ModelForm):
+    """Registro manual de uma sessão (sem agendamento). Já entra avaliada."""
+
     class Meta:
         model = Consulta
-        fields = ['data_hora', 'desempenho_nota', 'observacoes', 'plano_acao']
+        fields = ['data_hora', 'hora_fim', 'observacoes', 'plano_acao']
         widgets = {
             'data_hora': datetime_local_widget(),
-            'desempenho_nota': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'max': 10}),
-            'observacoes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'hora_fim': time_widget(),
+            'observacoes': forms.Textarea(attrs={'class': 'form-control', 'rows': 4}),
+            'plano_acao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+        labels = {
+            'data_hora': 'Data e horário de início',
+            'hora_fim': 'Horário de término',
+            'observacoes': 'Observações da sessão',
+            'plano_acao': 'Plano de ação / atividades',
         }
 
-    def clean_desempenho_nota(self):
-        nota = self.cleaned_data.get('desempenho_nota')
-        if nota is not None and not 1 <= nota <= 10:
-            raise forms.ValidationError('A nota de desempenho deve estar entre 1 e 10.')
-        return nota
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['observacoes'].required = True
+
+    def clean(self):
+        cleaned_data = super().clean()
+        validar_horario_termino(self)
+        return cleaned_data
+
+
+class AvaliacaoConsultaForm(forms.ModelForm):
+    """Avaliação qualitativa de uma sessão que já aconteceu."""
+
+    class Meta:
+        model = Consulta
+        fields = ['observacoes', 'plano_acao']
+        widgets = {
+            'observacoes': forms.Textarea(attrs={'class': 'form-control', 'rows': 5,
+                                                 'placeholder': 'Como foi a sessão, o que foi trabalhado, evolução observada...'}),
+            'plano_acao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3,
+                                                'placeholder': 'Atividades e orientações para as próximas sessões e para casa'}),
+        }
+        labels = {
+            'observacoes': 'Observações da sessão',
+            'plano_acao': 'Plano de ação / atividades',
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['observacoes'].required = True
+
+
+def somar_periodo(dia, quantidade, unidade):
+    """Data final de um período a partir de `dia` (dias, meses ou anos)."""
+    if unidade == 'dias':
+        return dia + timedelta(days=quantidade)
+    meses = quantidade * (12 if unidade == 'anos' else 1)
+    total = dia.month - 1 + meses
+    ano, mes = dia.year + total // 12, total % 12 + 1
+    return dia.replace(year=ano, month=mes, day=min(dia.day, calendar.monthrange(ano, mes)[1]))
+
 
 class AgendamentoForm(forms.ModelForm):
+    PERIODO_MAXIMO_DIAS = 731  # até 2 anos de sessões recorrentes
+    TIPO_CHOICES = [('unica', 'Consulta única'), ('recorrente', 'Consultas recorrentes')]
+    UNIDADE_CHOICES = [('dias', 'Dias'), ('meses', 'Meses'), ('anos', 'Anos')]
+
+    tipo_agendamento = forms.ChoiceField(
+        required=False, choices=TIPO_CHOICES, initial='unica', label='Tipo de agendamento',
+        widget=forms.RadioSelect(attrs={'class': 'form-check-input'}))
+    periodo_quantidade = forms.IntegerField(
+        required=False, min_value=1, initial=3, label='Duração do período',
+        widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}))
+    periodo_unidade = forms.ChoiceField(
+        required=False, choices=UNIDADE_CHOICES, initial='meses', label='Unidade',
+        widget=forms.Select(attrs={'class': 'form-select'}))
+
     class Meta:
         model = Agendamento
-        fields = ['paciente', 'clinica', 'data_hora', 'observacoes']
+        fields = ['paciente', 'clinica', 'data_hora', 'hora_fim', 'observacoes']
         widgets = {
             'paciente': forms.Select(attrs={'class': 'form-control'}),
             'clinica': forms.Select(attrs={'class': 'form-control'}),
             'data_hora': datetime_local_widget(),
+            'hora_fim': time_widget(),
             'observacoes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+        labels = {
+            'data_hora': 'Data e horário de início',
+            'hora_fim': 'Horário de término',
         }
 
     def __init__(self, *args, **kwargs):
         fonoaudiologo = kwargs.pop('fonoaudiologo', None)
         super().__init__(*args, **kwargs)
         self.fields['clinica'].required = False
+        self.fields['hora_fim'].required = True
         if fonoaudiologo is not None:
             # O profissional só pode agendar seus próprios pacientes e clínicas.
             self.fields['paciente'].queryset = Paciente.objects.filter(fonoaudiologo=fonoaudiologo)
             self.fields['clinica'].queryset = fonoaudiologo.clinicas.filter(ativo=True)
+        if self.instance.pk:
+            # A recorrência só existe ao criar; ao editar, altera-se uma sessão por vez.
+            for campo in ('tipo_agendamento', 'periodo_quantidade', 'periodo_unidade'):
+                del self.fields[campo]
+
+    @property
+    def recorrente(self):
+        return self.cleaned_data.get('tipo_agendamento') == 'recorrente'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        validar_horario_termino(self)
+        if self.recorrente:
+            qtd = cleaned_data.get('periodo_quantidade')
+            unidade = cleaned_data.get('periodo_unidade')
+            if not qtd:
+                self.add_error('periodo_quantidade', 'Informe a duração do período das consultas recorrentes.')
+            if not unidade:
+                self.add_error('periodo_unidade', 'Escolha dias, meses ou anos.')
+            inicio = cleaned_data.get('data_hora')
+            if qtd and unidade and inicio:
+                dia = timezone.localtime(inicio).date()
+                try:
+                    fim = somar_periodo(dia, qtd, unidade)
+                except (OverflowError, ValueError):
+                    fim = date.max
+                if (fim - dia).days > self.PERIODO_MAXIMO_DIAS:
+                    self.add_error('periodo_quantidade', 'O período máximo de consultas recorrentes é de 2 anos.')
+        return cleaned_data
+
+    def datas_das_sessoes(self):
+        """
+        Datas/horários de início das sessões a criar. Na consulta recorrente,
+        repete toda semana (mesmo dia da semana e horário da primeira) até o fim do período.
+        """
+        primeira = timezone.localtime(self.cleaned_data['data_hora']).replace(tzinfo=None)
+        if not self.recorrente:
+            return [timezone.make_aware(primeira)]
+        limite = somar_periodo(primeira.date(), self.cleaned_data['periodo_quantidade'],
+                               self.cleaned_data['periodo_unidade'])
+        datas, atual = [], primeira
+        while atual.date() < limite or not datas:
+            datas.append(timezone.make_aware(atual))
+            atual += timedelta(weeks=1)
+        return datas
+
+
+class SolicitacaoRemarcacaoForm(forms.Form):
+    """Paciente/responsável pede para mover a sessão para outro dia da mesma semana."""
+    nova_data = forms.DateField(label='Novo dia', widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'},
+                                                                          format='%Y-%m-%d'))
+    hora_inicio = forms.TimeField(label='Início', widget=time_widget())
+    hora_fim = forms.TimeField(label='Término', widget=time_widget())
+    motivo = forms.CharField(label='Mensagem para o(a) profissional', required=False, max_length=500,
+                             widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 2,
+                                                          'placeholder': 'Ex.: prefiro no período da tarde'}))
+
+    def __init__(self, *args, agendamento=None, **kwargs):
+        self.agendamento = agendamento
+        inicio = timezone.localtime(agendamento.data_hora)
+        self.semana_inicio = inicio.date() - timedelta(days=inicio.weekday())
+        self.semana_fim = self.semana_inicio + timedelta(days=6)
+        kwargs.setdefault('initial', {
+            'hora_inicio': inicio.time().replace(second=0, microsecond=0),
+            'hora_fim': agendamento.fim.time(),
+        })
+        super().__init__(*args, **kwargs)
+        self.fields['nova_data'].widget.attrs.update({'min': self.semana_inicio.isoformat(),
+                                                      'max': self.semana_fim.isoformat()})
+
+    def clean(self):
+        from .feriados import feriado
+        cleaned_data = super().clean()
+        dia, ini, fim = cleaned_data.get('nova_data'), cleaned_data.get('hora_inicio'), cleaned_data.get('hora_fim')
+        if dia:
+            original = timezone.localtime(self.agendamento.data_hora).date()
+            if not self.semana_inicio <= dia <= self.semana_fim:
+                self.add_error('nova_data', f'Escolha um dia da mesma semana da sessão '
+                                            f'({self.semana_inicio:%d/%m} a {self.semana_fim:%d/%m}).')
+            elif dia == original:
+                self.add_error('nova_data', 'Escolha um dia diferente do dia original da sessão.')
+            elif feriado(dia):
+                self.add_error('nova_data', f'{dia:%d/%m} também é feriado ({feriado(dia)}). Escolha outro dia.')
+            elif dia.weekday() == 6:
+                self.add_error('nova_data', 'Escolha um dia entre segunda-feira e sábado.')
+        if ini and fim and fim <= ini:
+            self.add_error('hora_fim', 'O horário de término deve ser depois do horário de início.')
+        if dia and ini and not self.errors:
+            quando = timezone.make_aware(datetime.combine(dia, ini))
+            if quando <= timezone.now():
+                self.add_error('nova_data', 'Escolha um dia e horário que ainda não passaram.')
+            cleaned_data['nova_data_hora'] = quando
+        return cleaned_data
+
 
 class GerarAtividadeForm(forms.Form):
     titulo = forms.CharField(max_length=200, label="Título da Atividade", widget=forms.TextInput(attrs={'class': 'form-control'}))
     conteudo_atividade = forms.CharField(label="Instruções para a Casa", widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 5}))
 
 class MaterialUploadForm(forms.ModelForm):
+    TAMANHO_MAXIMO_MB = 25
+
     class Meta:
         model = MaterialDidatico
-        fields = ['titulo', 'descricao', 'arquivo', 'link_externo']
+        fields = ['titulo', 'descricao', 'arquivo', 'link_externo', 'visivel_paciente']
         widgets = {
             'titulo': forms.TextInput(attrs={'class': 'form-control'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'arquivo': forms.FileInput(attrs={'class': 'form-control'}),
+            'arquivo': forms.FileInput(attrs={'class': 'form-control',
+                                              'accept': '.pdf,.jpg,.jpeg,.png,.mp3,.wav,.mp4,application/pdf'}),
             'link_externo': forms.URLInput(attrs={'class': 'form-control', 'placeholder': 'https://...'}),
+            'visivel_paciente': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+        labels = {
+            'arquivo': 'Arquivo (PDF, imagem, áudio ou vídeo)',
+            'visivel_paciente': 'Disponibilizar para o paciente na área dele',
+        }
+        help_texts = {
+            'visivel_paciente': 'Desmarque para guardar documentos internos (laudos, exames, relatórios) só no prontuário.',
+        }
+
+    def clean_arquivo(self):
+        arquivo = self.cleaned_data.get('arquivo')
+        if arquivo and getattr(arquivo, 'size', 0) > self.TAMANHO_MAXIMO_MB * 1024 * 1024:
+            raise forms.ValidationError(f'O arquivo deve ter no máximo {self.TAMANHO_MAXIMO_MB} MB.')
+        return arquivo
 
     def clean(self):
         cleaned_data = super().clean()

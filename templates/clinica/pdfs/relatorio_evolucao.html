@@ -10,7 +10,7 @@
 {% include 'clinica/pdfs/_cabecalho.html' %}
 
 <h1 class="titulo">Relatório de Evolução Clínica</h1>
-<div class="subtitulo">Prontuário fonoaudiológico com histórico de atendimentos e evolução do desempenho do paciente.</div>
+<div class="subtitulo">Prontuário fonoaudiológico com histórico de atendimentos e evolução clínica do paciente.</div>
 
 <!-- 1. Identificação -->
 <div class="secao">
@@ -53,11 +53,10 @@
     <div class="secao-titulo">3. RESUMO DO ACOMPANHAMENTO</div>
     <table class="indicadores">
         <tr>
-            <td><div class="ind-valor">{{ resumo.total }}</div><div class="ind-rotulo">SESSÕES REGISTRADAS</div></td>
+            <td><div class="ind-valor">{{ resumo.total }}</div><div class="ind-rotulo">SESSÕES AVALIADAS</div></td>
             <td><div class="ind-valor">{{ resumo.primeira|date:"d/m/Y"|default:"—" }}</div><div class="ind-rotulo">PRIMEIRA SESSÃO</div></td>
             <td><div class="ind-valor">{{ resumo.ultima|date:"d/m/Y"|default:"—" }}</div><div class="ind-rotulo">ÚLTIMA SESSÃO</div></td>
-            <td><div class="ind-valor">{% if resumo.media is not None %}{{ resumo.media|floatformat:1 }}{% else %}—{% endif %}</div><div class="ind-rotulo">MÉDIA DE DESEMPENHO (0-10)</div></td>
-            <td><div class="ind-valor">{{ resumo.tendencia }}</div><div class="ind-rotulo">TENDÊNCIA</div></td>
+            <td><div class="ind-valor">{% if resumo.frequencia is not None %}{{ resumo.frequencia|floatformat:1 }}{% else %}—{% endif %}</div><div class="ind-rotulo">SESSÕES POR MÊS (MÉDIA)</div></td>
         </tr>
     </table>
 </div>
@@ -73,21 +72,23 @@
 <!-- 5. Sessões -->
 <div class="secao">
     <div class="secao-titulo">5. REGISTRO DE SESSÕES E EVOLUÇÃO</div>
+    {% if resumo.pendentes %}
+    <div class="pequeno muted" style="margin: 2px 0 6px 0;">{{ resumo.pendentes }} sessão(ões) ainda aguardando avaliação do profissional não constam neste relatório.</div>
+    {% endif %}
     {% for consulta in consultas %}
     <table class="sessao">
         <tr class="sessao-cab">
-            <td width="50%">Sessão {{ forloop.counter }} &middot; {{ consulta.data_hora|date:"d/m/Y" }} às {{ consulta.data_hora|date:"H:i" }}</td>
-            <td class="nota">Desempenho {{ consulta.desempenho_nota }}/10 &middot; <span class="qualit">{{ consulta.desempenho_qualitativo }}</span></td>
+            <td>Sessão {{ forloop.counter }} &middot; {{ consulta.data_hora|date:"d/m/Y" }}, das {{ consulta.data_hora|date:"H:i" }}{% if consulta.hora_fim %} às {{ consulta.hora_fim|time:"H:i" }}{% endif %}</td>
         </tr>
         <tr class="sessao-corpo">
-            <td colspan="2">
+            <td>
                 <b>Observações clínicas:</b><br>{{ consulta.observacoes|linebreaksbr }}
                 {% if consulta.plano_acao %}<br><br><b>Plano de ação / atividades:</b><br>{{ consulta.plano_acao|linebreaksbr }}{% endif %}
             </td>
         </tr>
     </table>
     {% empty %}
-    <div class="caixa muted">Nenhuma sessão registrada até o momento.</div>
+    <div class="caixa muted">Nenhuma sessão avaliada até o momento.</div>
     {% endfor %}
 </div>
 

@@ -28,6 +28,10 @@
                         <button type="submit" class="btn btn-primary py-2"><i class="bi bi-file-earmark-pdf"></i> Gerar PDF e Enviar para o Paciente</button>
                     </div>
                 </form>
+                <p class="text-center text-muted small mt-3 mb-0">
+                    Já tem o documento pronto?
+                    <a href="{% url 'paciente_detail' paciente.id %}?tab=materiais&anexar=1" class="fw-semibold"><i class="bi bi-paperclip"></i> Anexar um PDF existente</a>
+                </p>
             </div>
         </div>
     </div>

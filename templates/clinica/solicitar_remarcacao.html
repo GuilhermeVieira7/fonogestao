@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block title %}Solicitar Remarcação - FonoGestão{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-7 col-md-9">
+            <a href="{% url 'area_paciente' %}#agenda" class="text-muted text-decoration-none mb-2 d-inline-block"><i class="bi bi-arrow-left"></i> Voltar para Minha Agenda</a>
+            <div class="card glass-card border-0">
+                <div class="card-body p-4 p-md-5">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-calendar2-week text-primary display-4 d-block mb-2"></i>
+                        <h4 class="fw-bold text-dark mb-1">Solicitar Remarcação</h4>
+                        <p class="text-muted small mb-0">Escolha outro dia da mesma semana para repor a sessão. Seu(sua) fonoaudiólogo(a) vai analisar e confirmar.</p>
+                    </div>
+
+                    <div class="p-3 bg-light rounded mb-4">
+                        <p class="mb-1"><strong>Sessão original:</strong> {{ agendamento.data_hora|date:"l, d/m/Y" }}, das {{ agendamento.data_hora|time:"H:i" }}{% if agendamento.hora_fim %} às {{ agendamento.hora_fim|time:"H:i" }}{% endif %}</p>
+                        {% if agendamento.feriado %}
+                        <p class="mb-1"><span class="badge bg-danger-subtle text-danger-emphasis"><i class="bi bi-flag-fill me-1"></i>Feriado: {{ agendamento.feriado }}</span></p>
+                        {% endif %}
+                        <p class="mb-0 small text-muted">Fonoaudiólogo(a): {{ agendamento.fonoaudiologo.user.get_full_name|default:agendamento.fonoaudiologo.user.username }}{% if agendamento.clinica %} &middot; {{ agendamento.clinica.nome }}{% endif %}</p>
+                    </div>
+
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        {% if form.non_field_errors %}<div class="alert alert-danger small">{{ form.non_field_errors }}</div>{% endif %}
+                        <div class="row g-3">
+                            <div class="col-12">
+                                {% include 'clinica/_campo.html' with campo=form.nova_data icone='bi-calendar-event' %}
+                                <div class="form-text small">Entre {{ form.semana_inicio|date:"d/m" }} e {{ form.semana_fim|date:"d/m" }} (segunda a sábado, exceto feriados).</div>
+                            </div>
+                            <div class="col-6">{% include 'clinica/_campo.html' with campo=form.hora_inicio icone='bi-clock' %}</div>
+                            <div class="col-6">{% include 'clinica/_campo.html' with campo=form.hora_fim icone='bi-clock-history' %}</div>
+                            <div class="col-12">{% include 'clinica/_campo.html' with campo=form.motivo icone='bi-chat-dots' %}</div>
+                        </div>
+                        <div class="d-flex flex-wrap justify-content-end gap-2 mt-4">
+                            <a href="{% url 'area_paciente' %}#agenda" class="btn btn-outline-secondary rounded-pill px-4">Cancelar</a>
+                            <button type="submit" class="btn btn-primary rounded-pill px-4"><i class="bi bi-send me-1"></i> Enviar Solicitação</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

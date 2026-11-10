@@ -6,9 +6,11 @@ import importlib
 import io
 import shutil
 import tempfile
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
+from unittest import mock
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from django.urls import reverse
@@ -17,7 +19,7 @@ from PIL import Image
 from pypdf import PdfReader
 
 from clinica.models import (Agendamento, Clinica, Consulta, DisponibilidadeHoraria, Fonoaudiologo, MaterialDidatico,
-                            Paciente, PerfilUsuario, TermoAceite, TermoVersao)
+                            Paciente, PerfilUsuario, SolicitacaoRemarcacao, TermoAceite, TermoVersao)
 
 MEDIA_TESTE = tempfile.mkdtemp(prefix='fonogestao_testes_')
 
@@ -146,6 +148,10 @@ class AgendaDiaTest(BaseSistema):
     def setUp(self):
         super().setUp()
         self.entrar(self.u_fono)
+        # Estes testes tratam só da exibição; a ida automática para o histórico é testada em HistoricoAutomaticoTest.
+        patcher = mock.patch('clinica.views.gerar_consultas_realizadas', return_value=0)
+        patcher.start()
+        self.addCleanup(patcher.stop)
         d = self.hoje
         mk = lambda h, st, pac=None: Agendamento.objects.create(
             fonoaudiologo=self.fono, paciente=pac or self.paciente, clinica=self.clinica,
@@ -160,9 +166,9 @@ class AgendaDiaTest(BaseSistema):
     def test_sessao_registrada_no_prontuario_aparece_sem_duplicar(self):
         outro = Paciente.objects.create(fonoaudiologo=self.fono, nome='Ana Clara', data_nascimento=date(2017, 2, 2), cpf='222.333.444-55')
         d = self.hoje
-        Consulta.objects.create(paciente=outro, data_hora=local(d.year, d.month, d.day, 15), desempenho_nota=7, observacoes='ok')
+        Consulta.objects.create(paciente=outro, data_hora=local(d.year, d.month, d.day, 15), observacoes='ok')
         # Mesmo paciente e mesmo dia de um agendamento ativo: não pode duplicar.
-        Consulta.objects.create(paciente=self.paciente, data_hora=local(d.year, d.month, d.day, 9, 5), desempenho_nota=6, observacoes='ok')
+        Consulta.objects.create(paciente=self.paciente, data_hora=local(d.year, d.month, d.day, 9, 5), observacoes='ok')
         itens = self.client.get(reverse('dashboard_fono')).context['agendamentos_dia']
         sessoes = [i for i in itens if i['tipo'] == 'sessao']
         self.assertEqual([s['paciente'].nome for s in sessoes], ['Ana Clara'])
@@ -216,7 +222,7 @@ class CriarAgendamentoTest(BaseSistema):
         quando = (timezone.localtime() + timedelta(days=3)).replace(hour=14, minute=0, second=0, microsecond=0)
         r = self.client.post(reverse('dashboard_fono'), {
             'paciente': self.paciente.pk, 'clinica': self.clinica.pk,
-            'data_hora': quando.strftime('%Y-%m-%dT%H:%M'), 'observacoes': ''})
+            'data_hora': quando.strftime('%Y-%m-%dT%H:%M'), 'hora_fim': '14:50', 'observacoes': ''})
         ag = Agendamento.objects.get()
         self.assertEqual(ag.status, 'A')
         self.assertIsNotNone(ag.confirmado_em)
@@ -275,7 +281,8 @@ class EditarExcluirAgendamentoTest(BaseSistema):
         r = self.client.get(reverse('agendamento_editar', args=[self.ag.pk]))
         self.assertContains(r, 'value="2030-05-20T14:30"')
         r = self.client.post(reverse('agendamento_editar', args=[self.ag.pk]), {
-            'paciente': self.paciente.pk, 'clinica': self.clinica.pk, 'data_hora': '2030-05-21T09:00', 'observacoes': 'x'})
+            'paciente': self.paciente.pk, 'clinica': self.clinica.pk, 'data_hora': '2030-05-21T09:00', 'hora_fim': '09:50',
+            'observacoes': 'x'})
         self.assertEqual(r['Location'], reverse('dashboard_fono') + '?tab=agenda')
         self.ag.refresh_from_db()
         self.assertEqual(timezone.localtime(self.ag.data_hora).day, 21)
@@ -312,7 +319,7 @@ class AgendaMensalTest(BaseSistema):
         mk(local(2030, 3, 31, 23, 30), 'C')   # último dia do mês, tarde da noite
         mk(local(2030, 4, 1, 8), 'A')         # mês seguinte: fora
         mk(local(2030, 3, 10, 9), 'A', fono=self.fono2, pac=self.paciente2)  # outro profissional: fora
-        Consulta.objects.create(paciente=self.paciente, data_hora=local(2030, 3, 20, 10), desempenho_nota=8, observacoes='ok')
+        Consulta.objects.create(paciente=self.paciente, data_hora=local(2030, 3, 20, 10), observacoes='ok')
 
     def test_retorna_somente_eventos_do_mes_e_do_profissional(self):
         r = self.client.get(reverse('agenda_mensal'), {'ano': 2030, 'mes': 3})
@@ -351,9 +358,12 @@ class ProntuarioPDFTest(BaseSistema):
         self.entrar(self.u_fono)
 
     def test_exporta_pdf_institucional_com_dados_e_resumo(self):
-        for i, nota in enumerate([3, 5, 8]):
-            Consulta.objects.create(paciente=self.paciente, data_hora=local(2026, 3, 1 + i * 7, 14), desempenho_nota=nota,
-                                    observacoes=f'Observação {i}', plano_acao='Praticar' if i == 0 else '')
+        for i in range(3):
+            Consulta.objects.create(paciente=self.paciente, data_hora=local(2026, 3, 1 + i * 7, 14), hora_fim=time(14, 50),
+                                    observacoes=f'Observação {i}', plano_acao='Praticar' if i == 0 else '',
+                                    avaliada_em=timezone.now())
+        # Sessão ainda não avaliada: não entra no relatório
+        Consulta.objects.create(paciente=self.paciente, data_hora=local(2026, 3, 29, 14))
         r = self.client.get(reverse('exportar_pdf', args=[self.paciente.pk]))
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r['Content-Type'], 'application/pdf')
@@ -362,16 +372,19 @@ class ProntuarioPDFTest(BaseSistema):
         self.assertIn('prontuario_joao-da-silva', r['Content-Disposition'])
         texto = texto_pdf(r.content)
         for esperado in ['Relatório de Evolução Clínica', 'João da Silva', 'Clínica Sonora', 'CRFa', '2-111',
-                         'IDENTIFICAÇÃO DO PACIENTE', 'RESUMO DO ACOMPANHAMENTO', 'Melhora', 'Observação 2',
+                         'IDENTIFICAÇÃO DO PACIENTE', 'RESUMO DO ACOMPANHAMENTO', 'SESSÕES POR MÊS', 'Observação 2',
+                         'das 14:00 às 14:50', '1 sessão(ões) ainda aguardando avaliação',
                          'Documento confidencial', 'PRT-']:
             self.assertIn(esperado, texto, esperado)
         self.assertLess(texto.index('Observação 0'), texto.index('Observação 2'))  # ordem cronológica
+        self.assertNotIn('Desempenho', texto)
+        self.assertNotIn('Sessão 4', texto)
 
     def test_exporta_sem_consultas_e_sem_clinica(self):
         sem = Paciente.objects.create(fonoaudiologo=self.fono, nome='Sem Dados', data_nascimento=date(2020, 1, 1), cpf='555.555.555-55')
         r = self.client.get(reverse('exportar_pdf', args=[sem.pk]))
         self.assertEqual(r.status_code, 200)
-        self.assertIn('Nenhuma sessão registrada', texto_pdf(r.content))
+        self.assertIn('Nenhuma sessão avaliada', texto_pdf(r.content))
 
 
 class AtividadeEMateriaisTest(BaseSistema):
@@ -438,7 +451,8 @@ class AtividadeEMateriaisTest(BaseSistema):
     def test_upload_de_imagem_aparece_para_o_paciente(self):
         self.entrar(self.u_fono)
         self.client.post(reverse('paciente_detail', args=[self.paciente.pk]), {
-            'material_upload': '1', 'titulo': 'Figura', 'arquivo': SimpleUploadedFile('fig.png', png_bytes(), 'image/png')})
+            'material_upload': '1', 'titulo': 'Figura', 'visivel_paciente': 'on',
+            'arquivo': SimpleUploadedFile('fig.png', png_bytes(), 'image/png')})
         m = MaterialDidatico.objects.get()
         self.assertEqual(m.tipo_midia, 'imagem')
         self.entrar(self.u_pac)
@@ -465,15 +479,20 @@ class AtividadeEMateriaisTest(BaseSistema):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class ValidacoesTest(BaseSistema):
-    def test_nota_de_consulta_deve_estar_entre_1_e_10(self):
+    def test_consulta_manual_exige_observacoes_e_termino_depois_do_inicio(self):
         self.entrar(self.u_fono)
         url = reverse('paciente_detail', args=[self.paciente.pk])
-        r = self.client.post(url, {'data_hora': '2026-03-01T10:00', 'desempenho_nota': 15, 'observacoes': 'x'})
-        self.assertEqual(r.status_code, 200)
-        self.assertEqual(r.context['abrir_modal'], 'novaConsultaModal')
+        for dados in [{'data_hora': '2026-03-01T10:00', 'observacoes': ''},
+                      {'data_hora': '2026-03-01T10:00', 'hora_fim': '09:30', 'observacoes': 'x'}]:
+            r = self.client.post(url, dados)
+            self.assertEqual(r.status_code, 200)
+            self.assertEqual(r.context['abrir_modal'], 'novaConsultaModal')
         self.assertFalse(Consulta.objects.exists())
-        r = self.client.post(url, {'data_hora': '2026-03-01T10:00', 'desempenho_nota': 7, 'observacoes': 'x'})
+        r = self.client.post(url, {'data_hora': '2026-03-01T10:00', 'hora_fim': '10:50', 'observacoes': 'x'})
         self.assertEqual(r['Location'], url + '?tab=consultas')
+        consulta = Consulta.objects.get()
+        self.assertTrue(consulta.avaliada)  # registrada manualmente já entra avaliada
+        self.assertEqual(consulta.hora_fim, time(10, 50))
 
     def test_disponibilidade_duplicada_mostra_erro_em_vez_de_quebrar(self):
         self.entrar(self.u_fono)
@@ -517,6 +536,402 @@ class ValidacoesTest(BaseSistema):
         novo = Paciente.objects.get(nome='Novo Paciente')
         self.assertRedirects(r, reverse('paciente_detail', args=[novo.pk]))
         self.assertEqual(novo.user.username, 'novo')
+
+
+class HistoricoAutomaticoTest(BaseSistema):
+    """Consulta agendada vai sozinha para o histórico quando o horário de término passa."""
+
+    def setUp(self):
+        super().setUp()
+        self.agora = timezone.localtime().replace(second=0, microsecond=0)
+
+    def agendar(self, inicio, fim=None, status='A', paciente=None):
+        return Agendamento.objects.create(fonoaudiologo=self.fono, paciente=paciente or self.paciente, clinica=self.clinica,
+                                          data_hora=inicio, hora_fim=fim, status=status)
+
+    def test_consulta_que_terminou_vai_para_o_historico_aguardando_avaliacao(self):
+        ontem = self.agora - timedelta(days=1)
+        ag = self.agendar(ontem.replace(hour=8, minute=0), time(8, 50))
+        self.entrar(self.u_fono)
+        r = self.client.get(reverse('dashboard_fono'))
+        consulta = Consulta.objects.get()
+        ag.refresh_from_db()
+        self.assertEqual(ag.status, 'R')
+        self.assertEqual((consulta.agendamento, consulta.paciente, consulta.hora_fim), (ag, self.paciente, time(8, 50)))
+        self.assertFalse(consulta.avaliada)
+        self.assertEqual(list(r.context['consultas_para_avaliar']), [consulta])
+        self.assertContains(r, 'Sessões aguardando sua avaliação')
+        r = self.client.get(reverse('paciente_detail', args=[self.paciente.pk]), {'tab': 'consultas'})
+        self.assertContains(r, 'Aguardando avaliação')
+        self.assertContains(r, reverse('consulta_avaliar', args=[consulta.pk]))
+        # Recarregar não duplica
+        self.client.get(reverse('dashboard_fono'))
+        self.assertEqual(Consulta.objects.count(), 1)
+
+    def test_consulta_em_andamento_ou_futura_nao_vai_para_o_historico(self):
+        self.agendar(self.agora - timedelta(minutes=10), (self.agora + timedelta(minutes=40)).time())  # em andamento
+        self.agendar(self.agora + timedelta(days=2))
+        self.agendar(self.agora - timedelta(days=3), status='P')   # nunca confirmada
+        self.agendar(self.agora - timedelta(days=3), status='C')   # cancelada
+        self.entrar(self.u_fono)
+        self.client.get(reverse('dashboard_fono'))
+        self.assertFalse(Consulta.objects.exists())
+
+    def test_agendamento_antigo_sem_horario_de_termino_usa_50_minutos(self):
+        inicio = self.agora - timedelta(minutes=55)
+        ag = self.agendar(inicio)
+        self.assertEqual(ag.fim, inicio + timedelta(minutes=50))
+        self.agendar(self.agora - timedelta(minutes=30), paciente=self.paciente2)  # ainda dentro dos 50 min
+        self.assertEqual(call_command_saida('gerar_consultas'), '1 consulta(s) enviada(s) para o histórico.')
+        self.assertEqual(Consulta.objects.get().agendamento, ag)
+
+    def test_sessao_registrada_manualmente_no_mesmo_dia_e_vinculada_sem_duplicar(self):
+        ontem = self.agora - timedelta(days=1)
+        manual = Consulta.objects.create(paciente=self.paciente, data_hora=ontem.replace(hour=8, minute=5),
+                                         observacoes='já registrada', avaliada_em=timezone.now())
+        ag = self.agendar(ontem.replace(hour=8, minute=0), time(8, 50))
+        self.entrar(self.u_fono)
+        self.client.get(reverse('paciente_detail', args=[self.paciente.pk]))
+        self.assertEqual(Consulta.objects.count(), 1)
+        manual.refresh_from_db()
+        self.assertEqual(manual.agendamento, ag)
+        self.assertTrue(manual.avaliada)
+
+    def test_paciente_so_ve_a_sessao_depois_de_avaliada(self):
+        ontem = self.agora - timedelta(days=1)
+        self.agendar(ontem.replace(hour=8, minute=0), time(8, 50))
+        self.entrar(self.u_pac)
+        r = self.client.get(reverse('area_paciente'))
+        consulta = Consulta.objects.get()
+        self.assertEqual(list(r.context['consultas']), [])
+
+        self.entrar(self.u_fono)
+        url = reverse('consulta_avaliar', args=[consulta.pk])
+        r = self.client.post(url, {'observacoes': '', 'plano_acao': ''})
+        self.assertIn(f'avaliar={consulta.pk}', r['Location'])
+        consulta.refresh_from_db()
+        self.assertFalse(consulta.avaliada)
+        r = self.client.post(url, {'observacoes': 'Boa produção do /r/ em palavras.', 'plano_acao': 'Treinar 10 min/dia'})
+        self.assertEqual(r['Location'], reverse('paciente_detail', args=[self.paciente.pk]) + '?tab=consultas')
+        consulta.refresh_from_db()
+        self.assertTrue(consulta.avaliada)
+
+        self.entrar(self.u_pac)
+        r = self.client.get(reverse('area_paciente'))
+        self.assertEqual(list(r.context['consultas']), [consulta])
+        self.assertContains(r, 'Boa produção do /r/ em palavras.')
+        self.assertContains(r, 'Treinar 10 min/dia')
+        self.assertNotContains(r, 'Desempenho:')
+
+    def test_outro_profissional_nao_avalia_nem_registra_falta(self):
+        consulta = Consulta.objects.create(paciente=self.paciente, data_hora=self.agora - timedelta(days=1))
+        self.entrar(self.u_fono2)
+        self.assertEqual(self.client.post(reverse('consulta_avaliar', args=[consulta.pk]), {'observacoes': 'x'}).status_code, 404)
+        self.assertEqual(self.client.post(reverse('consulta_falta', args=[consulta.pk])).status_code, 404)
+        self.entrar(self.u_pac)
+        self.assertEqual(self.client.post(reverse('consulta_avaliar', args=[consulta.pk]), {'observacoes': 'x'}).status_code, 403)
+
+    def test_paciente_faltou_tira_do_historico_e_cancela_o_agendamento(self):
+        ontem = self.agora - timedelta(days=1)
+        ag = self.agendar(ontem.replace(hour=8, minute=0), time(8, 50))
+        self.entrar(self.u_fono)
+        self.client.get(reverse('dashboard_fono'))
+        consulta = Consulta.objects.get()
+        r = self.client.post(reverse('consulta_falta', args=[consulta.pk]))
+        self.assertEqual(r['Location'], reverse('paciente_detail', args=[self.paciente.pk]) + '?tab=consultas')
+        self.assertFalse(Consulta.objects.exists())
+        ag.refresh_from_db()
+        self.assertEqual(ag.status, 'C')
+        self.client.get(reverse('dashboard_fono'))
+        self.assertFalse(Consulta.objects.exists())  # não volta a aparecer
+
+    def test_sessao_ja_avaliada_nao_pode_ser_marcada_como_falta(self):
+        consulta = Consulta.objects.create(paciente=self.paciente, data_hora=self.agora - timedelta(days=1),
+                                           observacoes='ok', avaliada_em=timezone.now())
+        self.entrar(self.u_fono)
+        self.assertEqual(self.client.post(reverse('consulta_falta', args=[consulta.pk])).status_code, 404)
+
+    def test_aba_evolucao_mostra_frequencia_de_sessoes_sem_nota(self):
+        Consulta.objects.create(paciente=self.paciente, data_hora=self.agora - timedelta(days=1), observacoes='ok',
+                                avaliada_em=timezone.now())
+        self.entrar(self.u_fono)
+        r = self.client.get(reverse('paciente_detail', args=[self.paciente.pk]))
+        self.assertEqual(len(r.context['chart_data']), 12)
+        self.assertEqual(sum(r.context['chart_data']), 1)
+        self.assertContains(r, 'Frequência de Sessões')
+        self.assertNotContains(r, 'Nota:')
+        self.assertNotContains(r, 'desempenho_nota')
+
+
+def call_command_saida(*args):
+    saida = io.StringIO()
+    call_command(*args, stdout=saida)
+    return saida.getvalue().strip()
+
+
+class AgendamentoRecorrenteTest(BaseSistema):
+    def setUp(self):
+        super().setUp()
+        self.entrar(self.u_fono)
+        # Segunda-feira 2 de março de 2026 (semana sem feriados), 08:00
+        self.inicio = local(2026, 3, 2, 8)
+
+    def dados(self, **extra):
+        base = {'paciente': self.paciente.pk, 'clinica': self.clinica.pk,
+                'data_hora': timezone.localtime(self.inicio).strftime('%Y-%m-%dT%H:%M'), 'hora_fim': '08:50',
+                'observacoes': ''}
+        base.update(extra)
+        return base
+
+    def recorrente(self, qtd, unidade, **extra):
+        return self.client.post(reverse('dashboard_fono'), self.dados(
+            tipo_agendamento='recorrente', periodo_quantidade=qtd, periodo_unidade=unidade, **extra), follow=True)
+
+    @mock.patch('clinica.views.gerar_consultas_realizadas', return_value=0)
+    def test_recorrente_por_meses_cria_sessoes_semanais_no_mesmo_dia_e_horario(self, _):
+        r = self.recorrente(1, 'meses')  # 02/03 a 01/04 -> 02, 09, 16, 23, 30 de março
+        ags = list(Agendamento.objects.order_by('data_hora'))
+        self.assertEqual([timezone.localtime(a.data_hora).day for a in ags], [2, 9, 16, 23, 30])
+        for ag in ags:
+            local_ = timezone.localtime(ag.data_hora)
+            self.assertEqual((local_.weekday(), local_.hour, local_.minute, ag.hora_fim, ag.status), (0, 8, 0, time(8, 50), 'A'))
+        self.assertContains(r, '5 sessões agendadas: toda segunda-feira')
+
+    @mock.patch('clinica.views.gerar_consultas_realizadas', return_value=0)
+    def test_recorrente_por_dias_e_anos(self, _):
+        self.recorrente(15, 'dias')  # 02/03 a 17/03 -> 02, 09, 16
+        self.assertEqual(Agendamento.objects.count(), 3)
+        Agendamento.objects.all().delete()
+        self.recorrente(1, 'anos')  # 52 ou 53 segundas-feiras
+        self.assertIn(Agendamento.objects.count(), (52, 53))
+        ultima = timezone.localtime(Agendamento.objects.order_by('-data_hora').first().data_hora).date()
+        self.assertLess(ultima, date(2027, 3, 2))
+
+    def test_recorrente_avisa_sessoes_em_feriado(self):
+        self.inicio = local(2026, 4, 14, 9)  # terça; 21/04 (Tiradentes) é terça
+        r = self.recorrente(14, 'dias', hora_fim='09:50')
+        self.assertEqual(Agendamento.objects.count(), 2)
+        self.assertContains(r, 'cai(em) em feriado')
+        self.assertContains(r, '21/04 Tiradentes')
+
+    def test_consulta_unica_cria_uma_sessao(self):
+        self.client.post(reverse('dashboard_fono'), self.dados(tipo_agendamento='unica', periodo_quantidade=6,
+                                                               periodo_unidade='meses'))
+        self.assertEqual(Agendamento.objects.count(), 1)
+
+    def test_validacoes_de_horario_e_periodo(self):
+        for extra, campo in [({'hora_fim': ''}, 'hora_fim'), ({'hora_fim': '07:30'}, 'hora_fim'),
+                             ({'hora_fim': '08:00'}, 'hora_fim'),
+                             ({'tipo_agendamento': 'recorrente', 'periodo_quantidade': '', 'periodo_unidade': 'meses'}, 'periodo_quantidade'),
+                             ({'tipo_agendamento': 'recorrente', 'periodo_quantidade': 3, 'periodo_unidade': ''}, 'periodo_unidade'),
+                             ({'tipo_agendamento': 'recorrente', 'periodo_quantidade': 3, 'periodo_unidade': 'anos'}, 'periodo_quantidade'),
+                             ({'tipo_agendamento': 'recorrente', 'periodo_quantidade': 0, 'periodo_unidade': 'dias'}, 'periodo_quantidade'),
+                             ({'tipo_agendamento': 'semanal'}, 'tipo_agendamento')]:
+            r = self.client.post(reverse('dashboard_fono'), self.dados(**extra))
+            self.assertEqual(r.status_code, 200, extra)
+            self.assertIn(campo, r.context['agendamento_form'].errors, extra)
+            self.assertTrue(r.context['abrir_modal_agendamento'])
+        self.assertFalse(Agendamento.objects.exists())
+
+    def test_somar_periodo_respeita_fim_de_mes(self):
+        from clinica.forms import somar_periodo
+        self.assertEqual(somar_periodo(date(2026, 1, 31), 1, 'meses'), date(2026, 2, 28))
+        self.assertEqual(somar_periodo(date(2024, 2, 29), 1, 'anos'), date(2025, 2, 28))
+        self.assertEqual(somar_periodo(date(2026, 11, 10), 3, 'meses'), date(2027, 2, 10))
+
+    def test_editar_nao_oferece_recorrencia_e_mostra_termino(self):
+        futuro = (timezone.localtime() + timedelta(days=2)).replace(hour=8, minute=0, second=0, microsecond=0)
+        ag = Agendamento.objects.create(fonoaudiologo=self.fono, paciente=self.paciente, data_hora=futuro,
+                                        hora_fim=time(8, 50), status='A')
+        r = self.client.get(reverse('agendamento_editar', args=[ag.pk]))
+        self.assertContains(r, 'value="08:50"')
+        self.assertNotContains(r, 'tipo_agendamento')
+
+    def test_agenda_mostra_horario_de_termino(self):
+        futuro = (timezone.localtime() + timedelta(days=2)).replace(hour=8, minute=0, second=0, microsecond=0)
+        Agendamento.objects.create(fonoaudiologo=self.fono, paciente=self.paciente, data_hora=futuro,
+                                   hora_fim=time(8, 50), status='A')
+        r = self.client.get(reverse('dashboard_fono'), {'data': futuro.strftime('%Y-%m-%d')})
+        self.assertContains(r, '08:00 – 08:50')
+        dados = self.client.get(reverse('agenda_mensal'), {'ano': futuro.year, 'mes': futuro.month}).json()
+        self.assertEqual(dados['eventos'][0]['hora_fim'], '08:50')
+
+
+class FeriadosTest(BaseSistema):
+    def test_feriados_fixos_e_moveis(self):
+        from clinica.feriados import feriado, pascoa
+        self.assertEqual(pascoa(2026), date(2026, 4, 5))
+        self.assertEqual(pascoa(2027), date(2027, 3, 28))
+        casos = {date(2026, 1, 1): 'Confraternização Universal', date(2026, 2, 16): 'Carnaval',
+                 date(2026, 2, 17): 'Carnaval', date(2026, 4, 3): 'Sexta-feira Santa', date(2026, 4, 21): 'Tiradentes',
+                 date(2026, 6, 4): 'Corpus Christi', date(2026, 11, 20): 'Dia da Consciência Negra',
+                 date(2026, 12, 25): 'Natal'}
+        for dia, nome in casos.items():
+            self.assertEqual(feriado(dia), nome, dia)
+        self.assertIsNone(feriado(date(2026, 3, 10)))
+        self.assertIsNone(feriado(date(2023, 11, 20)))  # nacional só a partir de 2024
+
+    def test_agenda_sinaliza_feriado(self):
+        ag = Agendamento.objects.create(fonoaudiologo=self.fono, paciente=self.paciente, clinica=self.clinica,
+                                        data_hora=local(2030, 12, 25, 9), hora_fim=time(9, 50), status='A')
+        self.assertEqual(ag.feriado, 'Natal')
+        self.entrar(self.u_fono)
+        r = self.client.get(reverse('dashboard_fono'), {'data': '2030-12-25', 'tab': 'agenda'})
+        self.assertContains(r, 'Feriado nacional: <strong>Natal</strong>')
+        self.assertEqual(r.context['agendamentos_dia'][0]['feriado'], 'Natal')
+        dados = self.client.get(reverse('agenda_mensal'), {'ano': 2030, 'mes': 12}).json()
+        self.assertEqual(dados['feriados'], {'2030-12-25': 'Natal'})
+        self.assertEqual(dados['eventos'][0]['feriado'], 'Natal')
+        self.entrar(self.u_pac)
+        r = self.client.get(reverse('area_paciente'))
+        self.assertContains(r, 'Feriado: Natal')
+        self.assertContains(r, reverse('solicitar_remarcacao', args=[ag.pk]))
+
+
+class RemarcacaoTest(BaseSistema):
+    def setUp(self):
+        super().setUp()
+        # Quarta-feira de Natal em 2030; semana de 23/12 (seg) a 29/12 (dom)
+        self.ag = Agendamento.objects.create(fonoaudiologo=self.fono, paciente=self.paciente, clinica=self.clinica,
+                                             data_hora=local(2030, 12, 25, 9), hora_fim=time(9, 50), status='A')
+        self.url = reverse('solicitar_remarcacao', args=[self.ag.pk])
+
+    def pedir(self, dia='2030-12-26', ini='14:00', fim='14:50', motivo='Prefiro à tarde'):
+        return self.client.post(self.url, {'nova_data': dia, 'hora_inicio': ini, 'hora_fim': fim, 'motivo': motivo})
+
+    def test_paciente_solicita_e_profissional_aprova(self):
+        self.entrar(self.u_pac)
+        r = self.client.get(self.url)
+        self.assertContains(r, 'Feriado: Natal')
+        self.assertContains(r, 'value="09:00"')
+        r = self.pedir()
+        self.assertRedirects(r, reverse('area_paciente') + '#agenda', fetch_redirect_response=False)
+        sol = SolicitacaoRemarcacao.objects.get()
+        self.assertEqual((sol.status, timezone.localtime(sol.nova_data_hora).day, sol.nova_hora_fim), ('P', 26, time(14, 50)))
+        self.assertContains(self.client.get(reverse('area_paciente')), 'Remarcação solicitada')
+        # Não pode pedir de novo enquanto há uma pendente
+        self.assertRedirects(self.client.get(self.url), reverse('area_paciente') + '#agenda', fetch_redirect_response=False)
+
+        self.entrar(self.u_fono)
+        r = self.client.get(reverse('dashboard_fono'))
+        self.assertContains(r, 'Solicitações de remarcação')
+        self.assertContains(r, 'Prefiro à tarde')
+        self.client.post(reverse('responder_remarcacao', args=[sol.pk]), {'acao': 'aprovar'})
+        sol.refresh_from_db(); self.ag.refresh_from_db()
+        self.assertEqual(sol.status, 'A')
+        self.assertIsNotNone(sol.respondido_em)
+        novo = timezone.localtime(self.ag.data_hora)
+        self.assertEqual((novo.day, novo.hour, self.ag.hora_fim, self.ag.status), (26, 14, time(14, 50), 'A'))
+        self.assertIsNone(self.ag.feriado)
+
+    def test_profissional_recusa_com_motivo(self):
+        self.entrar(self.u_pac)
+        self.pedir()
+        sol = SolicitacaoRemarcacao.objects.get()
+        self.entrar(self.u_fono)
+        self.client.post(reverse('responder_remarcacao', args=[sol.pk]), {'acao': 'recusar', 'resposta': 'Agenda cheia'})
+        sol.refresh_from_db(); self.ag.refresh_from_db()
+        self.assertEqual((sol.status, sol.resposta), ('R', 'Agenda cheia'))
+        self.assertEqual(timezone.localtime(self.ag.data_hora).day, 25)
+        self.entrar(self.u_pac)
+        r = self.client.get(reverse('area_paciente'))
+        self.assertContains(r, 'Último pedido recusado: Agenda cheia')
+        self.assertEqual(self.client.get(self.url).status_code, 200)  # pode pedir outra data
+
+    def test_validacoes_da_nova_data(self):
+        self.entrar(self.u_pac)
+        for dia, ini, fim, erro in [('2030-12-30', '09:00', '09:50', 'mesma semana'),
+                                    ('2030-12-22', '09:00', '09:50', 'mesma semana'),
+                                    ('2030-12-25', '14:00', '14:50', 'dia diferente'),
+                                    ('2030-12-29', '09:00', '09:50', 'segunda-feira e sábado'),
+                                    ('2030-12-26', '10:00', '09:00', 'depois do horário de início')]:
+            r = self.pedir(dia, ini, fim)
+            self.assertEqual(r.status_code, 200, dia)
+            self.assertContains(r, erro)
+        self.assertFalse(SolicitacaoRemarcacao.objects.exists())
+
+    def test_nova_data_nao_pode_ser_outro_feriado(self):
+        ag = Agendamento.objects.create(fonoaudiologo=self.fono, paciente=self.paciente, data_hora=local(2030, 11, 20, 9),
+                                        status='A')  # quarta, Consciência Negra; 15/11 (sex) é outro feriado, mas outra semana
+        sexta_santa = Agendamento.objects.create(fonoaudiologo=self.fono, paciente=self.paciente,
+                                                 data_hora=local(2031, 4, 11, 9), status='A')  # 2031: Sexta-Santa 11/04
+        self.entrar(self.u_pac)
+        r = self.client.post(reverse('solicitar_remarcacao', args=[sexta_santa.pk]),
+                             {'nova_data': '2031-04-11', 'hora_inicio': '10:00', 'hora_fim': '10:50'})
+        self.assertContains(r, 'dia diferente')
+        r = self.client.post(reverse('solicitar_remarcacao', args=[ag.pk]),
+                             {'nova_data': '2030-11-21', 'hora_inicio': '10:00', 'hora_fim': '10:50'})
+        self.assertEqual(r.status_code, 302)
+
+    def test_regras_de_acesso(self):
+        comum = Agendamento.objects.create(fonoaudiologo=self.fono, paciente=self.paciente, data_hora=local(2030, 12, 18, 9),
+                                           status='A')  # não é feriado
+        passado = Agendamento.objects.create(fonoaudiologo=self.fono, paciente=self.paciente, data_hora=local(2020, 12, 25, 9),
+                                             status='A')
+        self.entrar(self.u_pac)
+        for ag in (comum, passado):
+            r = self.client.get(reverse('solicitar_remarcacao', args=[ag.pk]))
+            self.assertRedirects(r, reverse('area_paciente') + '#agenda', fetch_redirect_response=False)
+        # Agendamento de outro paciente
+        outro = Agendamento.objects.create(fonoaudiologo=self.fono2, paciente=self.paciente2, data_hora=local(2030, 12, 25, 9),
+                                           status='A')
+        self.assertEqual(self.client.get(reverse('solicitar_remarcacao', args=[outro.pk])).status_code, 404)
+        # Fonoaudiólogo não pede remarcação; outro fono não responde
+        self.entrar(self.u_fono)
+        self.assertEqual(self.client.get(self.url).status_code, 403)
+        sol = SolicitacaoRemarcacao.objects.create(agendamento=self.ag, data_original=self.ag.data_hora,
+                                                   nova_data_hora=local(2030, 12, 26, 9))
+        self.entrar(self.u_fono2)
+        self.assertEqual(self.client.post(reverse('responder_remarcacao', args=[sol.pk]), {'acao': 'aprovar'}).status_code, 404)
+
+
+class AnexoPDFTest(BaseSistema):
+    def anexar(self, visivel=True, nome='laudo.pdf', conteudo=b'%PDF-1.4 laudo'):
+        dados = {'material_upload': '1', 'titulo': 'Laudo audiológico', 'arquivo': SimpleUploadedFile(nome, conteudo, 'application/pdf')}
+        if visivel:
+            dados['visivel_paciente'] = 'on'
+        return self.client.post(reverse('paciente_detail', args=[self.paciente.pk]), dados)
+
+    def test_anexa_pdf_existente_e_paciente_baixa(self):
+        self.entrar(self.u_fono)
+        r = self.client.get(reverse('paciente_detail', args=[self.paciente.pk]))
+        self.assertContains(r, 'Anexar PDF / Mídia')
+        self.assertContains(r, 'accept=".pdf')
+        r = self.anexar()
+        self.assertEqual(r['Location'], reverse('paciente_detail', args=[self.paciente.pk]) + '?tab=materiais')
+        m = MaterialDidatico.objects.get()
+        self.assertEqual(m.extensao, 'pdf')
+        self.assertEqual(m.tipo_midia, 'documento')
+        self.entrar(self.u_pac)
+        self.assertContains(self.client.get(reverse('area_paciente')), 'Laudo audiológico')
+        r = self.client.get(reverse('material_download', args=[m.pk]))
+        self.assertEqual(corpo(r), b'%PDF-1.4 laudo')
+
+    def test_documento_so_no_prontuario_nao_aparece_para_o_paciente(self):
+        self.entrar(self.u_fono)
+        self.anexar(visivel=False)
+        m = MaterialDidatico.objects.get()
+        self.assertFalse(m.visivel_paciente)
+        self.assertContains(self.client.get(reverse('paciente_detail', args=[self.paciente.pk])), 'Só no prontuário')
+        self.assertEqual(self.client.get(reverse('material_download', args=[m.pk])).status_code, 200)
+        self.entrar(self.u_pac)
+        self.assertNotContains(self.client.get(reverse('area_paciente')), 'Laudo audiológico')
+        self.assertEqual(self.client.get(reverse('material_download', args=[m.pk])).status_code, 404)
+
+    def test_recusa_extensao_invalida_e_arquivo_grande(self):
+        self.entrar(self.u_fono)
+        r = self.anexar(nome='virus.exe', conteudo=b'MZ')
+        self.assertEqual(r.status_code, 200)
+        from clinica.forms import MaterialUploadForm
+        with mock.patch.object(MaterialUploadForm, 'TAMANHO_MAXIMO_MB', 0):
+            r = self.anexar()
+        self.assertContains(r, 'no máximo 0 MB')
+        self.assertFalse(MaterialDidatico.objects.exists())
+
+    def test_atalho_na_tela_de_gerar_atividade(self):
+        self.entrar(self.u_fono)
+        r = self.client.get(reverse('gerar_atividade_pdf', args=[self.paciente.pk]))
+        self.assertContains(r, '?tab=materiais&anexar=1')
 
 
 class CPFTest(BaseSistema):

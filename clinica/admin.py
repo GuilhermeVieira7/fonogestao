@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Fonoaudiologo, Paciente, MaterialDidatico, Consulta, Clinica, TermoVersao, TermoAceite, Agendamento, DisponibilidadeHoraria, PerfilUsuario
+from .models import Fonoaudiologo, Paciente, MaterialDidatico, Consulta, Clinica, TermoVersao, TermoAceite, Agendamento, DisponibilidadeHoraria, PerfilUsuario, SolicitacaoRemarcacao
 
 @admin.register(Fonoaudiologo)
 class FonoaudiologoAdmin(admin.ModelAdmin):
@@ -22,13 +22,13 @@ class MaterialDidaticoAdmin(admin.ModelAdmin):
 
 @admin.register(Consulta)
 class ConsultaAdmin(admin.ModelAdmin):
-    list_display = ('paciente', 'data_hora', 'desempenho_nota')
+    list_display = ('paciente', 'data_hora', 'hora_fim', 'avaliada_em')
     search_fields = ('paciente__nome', 'observacoes')
-    list_filter = ('data_hora', 'desempenho_nota')
+    list_filter = ('data_hora', 'avaliada_em')
 
 @admin.register(Agendamento)
 class AgendamentoAdmin(admin.ModelAdmin):
-    list_display = ('paciente', 'fonoaudiologo', 'data_hora', 'clinica', 'status', 'criado_em')
+    list_display = ('paciente', 'fonoaudiologo', 'data_hora', 'hora_fim', 'clinica', 'status', 'criado_em')
     search_fields = ('paciente__nome', 'fonoaudiologo__user__first_name', 'clinica__nome')
     list_filter = ('status', 'data_hora', 'clinica')
     date_hierarchy = 'data_hora'
@@ -67,3 +67,10 @@ class PerfilUsuarioAdmin(admin.ModelAdmin):
     list_display = ('user', 'idioma', 'tema', 'atualizado_em')
     list_filter = ('idioma', 'tema')
     search_fields = ('user__username', 'user__first_name', 'user__last_name', 'user__email')
+
+
+@admin.register(SolicitacaoRemarcacao)
+class SolicitacaoRemarcacaoAdmin(admin.ModelAdmin):
+    list_display = ('agendamento', 'data_original', 'nova_data_hora', 'status', 'criado_em', 'respondido_em')
+    list_filter = ('status',)
+    search_fields = ('agendamento__paciente__nome',)

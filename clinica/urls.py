@@ -12,6 +12,7 @@ from .views import (
     PacienteAgendamentoCreateView,
     AssistenteView,
     AgendaMensalView, MaterialDownloadView, PerfilView, AlterarSenhaView,
+    ConsultaAvaliarView, ConsultaFaltaView, SolicitarRemarcacaoView, ResponderRemarcacaoView,
     TermosUsoView, PoliticaPrivacidadeView, AceitarTermosView,
 )
 
@@ -32,6 +33,10 @@ urlpatterns = [
     path('paciente/<int:pk>/editar/', PacienteUpdateView.as_view(), name='paciente_editar'),
     path('paciente/<int:pk>/exportar-pdf/', ExportarProntuarioPDFView.as_view(), name='exportar_pdf'),
     path('paciente/<int:pk>/gerar-atividade/', GerarAtividadePDFView.as_view(), name='gerar_atividade_pdf'),
+    path('consulta/<int:pk>/avaliar/', ConsultaAvaliarView.as_view(), name='consulta_avaliar'),
+    path('consulta/<int:pk>/falta/', ConsultaFaltaView.as_view(), name='consulta_falta'),
+    path('agendamento/<int:pk>/remarcar/', SolicitarRemarcacaoView.as_view(), name='solicitar_remarcacao'),
+    path('remarcacao/<int:pk>/responder/', ResponderRemarcacaoView.as_view(), name='responder_remarcacao'),
     path('meus-materiais/', AreaPacienteView.as_view(), name='area_paciente'),
     path('cadastro/fonoaudiologo/', CadastroFonoView.as_view(), name='cadastro_fono'),
     path('cadastro/paciente/', CadastroPacienteView.as_view(), name='cadastro_paciente'),
