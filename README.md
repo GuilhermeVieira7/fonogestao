@@ -179,6 +179,29 @@ python manage.py test clinica
 
 ---
 
+## Publicar no Render (Blueprint)
+
+O repositório já vem com tudo pronto: `render.yaml` (Blueprint), `build.sh` (build) e Gunicorn + WhiteNoise.
+
+1. Envie o código para o GitHub.
+2. No [painel do Render](https://dashboard.render.com), clique em **New > Blueprint** e selecione o repositório.
+3. O Render lê o `render.yaml` e cria:
+   - o banco **PostgreSQL** `fonogestao-db`;
+   - o site **fonogestao** (Python 3.12), com `SECRET_KEY` gerada automaticamente e `DEBUG=False`.
+4. Ele pede três valores para o administrador: `DJANGO_SUPERUSER_USERNAME`, `DJANGO_SUPERUSER_EMAIL` e `DJANGO_SUPERUSER_PASSWORD`. O admin é criado no primeiro deploy.
+5. Clique em **Apply** e aguarde o build. Ele instala as dependências, roda `collectstatic`, `migrate` e `populate_termos`.
+6. Acesse `https://fonogestao.onrender.com` (ou o endereço mostrado pelo Render).
+
+**Observações importantes**
+
+- **Arquivos enviados** (fotos de perfil, materiais e PDFs de atividades): no plano *free* o disco do Render é apagado a cada deploy ou reinício. Para guardá-los de vez, mude o serviço para o plano *starter* e descomente o bloco `disk` e a variável `MEDIA_ROOT` no `render.yaml`.
+- **Banco free**: o PostgreSQL gratuito do Render expira após 30 dias. Para uso real, escolha um plano pago do banco.
+- **Plano free "dorme"**: após 15 minutos sem acesso, o primeiro acesso seguinte demora cerca de 1 minuto.
+- **E-mail de recuperação de senha**: sem SMTP configurado, os e-mails só aparecem nos logs. Para enviar de verdade, defina no Render as variáveis `EMAIL_BACKEND`, `EMAIL_HOST`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD` e `DEFAULT_FROM_EMAIL` (veja `.env.example`).
+- **Domínio próprio**: adicione-o em `ALLOWED_HOSTS` e `CSRF_TRUSTED_ORIGINS` (o domínio `.onrender.com` já é liberado automaticamente).
+
+---
+
 ## Problemas comuns
 
 | Sintoma | Causa / solução |
@@ -209,4 +232,5 @@ media/               # Uploads (materiais didáticos, etc.)
 - **SQLite** (padrão) ou **PostgreSQL** (produção)
 - **Bootstrap 5.3** + **Bootstrap Icons 1.11**: interface
 - **xhtml2pdf**: geração de PDFs
+- **Gunicorn** + **WhiteNoise**: servidor e arquivos estáticos em produção (Render)
 - **python-decouple**: variáveis de ambiente

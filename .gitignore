@@ -119,3 +119,6 @@ Thumbs.db
 # Cópia duplicada do projeto e uploads de usuários
 /Fonoaudiologia v1/
 /media/
+
+# Gerado pelo collectstatic
+/staticfiles/

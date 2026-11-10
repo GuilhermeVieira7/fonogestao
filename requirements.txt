@@ -4,3 +4,9 @@ python-decouple==3.8
 Pillow==10.3.0
 dj-database-url==2.1.0
 xhtml2pdf==0.2.15
+# Fixadas para o xhtml2pdf não exigir pycairo (que não compila no Render)
+reportlab==4.0.9
+svglib==1.5.1
+# Produção (Render)
+gunicorn==22.0.0
+whitenoise==6.7.0

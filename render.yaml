@@ -1,0 +1,46 @@
+# Blueprint do Render: cria o site (Django + Gunicorn) e o banco PostgreSQL.
+# Uso: no painel do Render, New > Blueprint > selecione este repositório.
+
+databases:
+  - name: fonogestao-db
+    plan: free
+    databaseName: fonogestao
+    user: fonogestao
+
+services:
+  - type: web
+    name: fonogestao
+    runtime: python
+    plan: free
+    buildCommand: ./build.sh
+    startCommand: gunicorn core.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    healthCheckPath: /login/
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: fonogestao-db
+          property: connectionString
+      # Administrador criado no primeiro deploy (o Render pede os valores ao criar o Blueprint)
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
+        sync: false
+
+    # ARQUIVOS ENVIADOS (fotos de perfil, materiais e PDFs de atividades):
+    # no plano free o disco é apagado a cada deploy/reinício. Para guardá-los de forma
+    # permanente, troque "plan: free" por "plan: starter" e descomente as linhas abaixo.
+    # disk:
+    #   name: fonogestao-media
+    #   mountPath: /var/data
+    #   sizeGB: 1
+    # e adicione em envVars:
+    #   - key: MEDIA_ROOT
+    #     value: /var/data/media
