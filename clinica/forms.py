@@ -114,7 +114,7 @@ class FonoaudiologoCadastroForm(forms.ModelForm):
         widgets = {
             'crfa': forms.TextInput(attrs={'class': 'form-control'}),
             'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apenas números'}),
-            'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
             'telefone': forms.TextInput(attrs={'class': 'form-control'}),
             'especialidade': forms.TextInput(attrs={'class': 'form-control'}),
         }
@@ -133,7 +133,7 @@ class PacienteCadastroForm(forms.ModelForm):
             'clinica': forms.Select(attrs={'class': 'form-select'}),
             'fonoaudiologo': forms.Select(attrs={'class': 'form-select'}),
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
             'cpf': forms.TextInput(attrs={'class': 'form-control'}),
             'nome_responsavel': forms.TextInput(attrs={'class': 'form-control'}),
             'historico_clinico': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
@@ -194,7 +194,7 @@ class FonoCadastraPacienteForm(forms.ModelForm):
         widgets = {
             'clinica': forms.Select(attrs={'class': 'form-select'}),
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome completo do paciente'}),
-            'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
             'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '000.000.000-00'}),
             'nome_responsavel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do responsável (opcional)'}),
             'historico_clinico': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Queixa principal, diagnóstico ou observações iniciais...'}),
@@ -242,7 +242,7 @@ class PacienteUpdateForm(forms.ModelForm):
         widgets = {
             'clinica': forms.Select(attrs={'class': 'form-select'}),
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
-            'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
             'cpf': forms.TextInput(attrs={'class': 'form-control'}),
             'nome_responsavel': forms.TextInput(attrs={'class': 'form-control'}),
             'historico_clinico': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),

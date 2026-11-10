@@ -118,6 +118,15 @@ class PermissoesTest(BaseSistema):
         for nome in ['area_paciente', 'perfil', 'termos_uso']:
             self.assertEqual(self.client.get(reverse(nome)).status_code, 200, nome)
 
+    def test_edicao_mostra_datas_ja_cadastradas(self):
+        """Campos <input type=date> precisam vir preenchidos (formato AAAA-MM-DD)."""
+        self.entrar(self.u_fono)
+        r = self.client.get(reverse('paciente_editar', args=[self.paciente.pk]))
+        self.assertContains(r, 'value="2016-05-10"')
+        self.fono.data_nascimento = date(1990, 4, 2)
+        self.fono.save()
+        self.assertContains(self.client.get(reverse('perfil')), 'value="1990-04-02"')
+
 
 class TermosMiddlewareTest(BaseSistema):
     def test_usuario_com_termo_pendente_e_redirecionado_e_depois_liberado(self):
