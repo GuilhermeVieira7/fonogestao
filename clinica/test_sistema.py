@@ -64,7 +64,7 @@ class BaseSistema(TestCase):
         self.u_pac = User.objects.create_user('joao', password='Senha!Forte123', first_name='João')
         self.paciente = Paciente.objects.create(
             user=self.u_pac, fonoaudiologo=self.fono, clinica=self.clinica, nome='João da Silva',
-            data_nascimento=date(2016, 5, 10), cpf='111.222.333-44', nome_responsavel='Maria da Silva',
+            data_nascimento=date(2016, 5, 10), cpf='390.533.447-05', nome_responsavel='Maria da Silva',
             historico_clinico='Trocas fonológicas.')
         self.paciente2 = Paciente.objects.create(
             fonoaudiologo=self.fono2, nome='Pedro Outro', data_nascimento=date(2015, 1, 1), cpf='999.888.777-66')
@@ -512,11 +512,80 @@ class ValidacoesTest(BaseSistema):
     def test_fono_cadastra_paciente_com_acesso(self):
         self.entrar(self.u_fono)
         r = self.client.post(reverse('cadastro_paciente'), {
-            'clinica': self.clinica.pk, 'nome': 'Novo Paciente', 'data_nascimento': '2019-01-01', 'cpf': '321.321.321-32',
+            'clinica': self.clinica.pk, 'nome': 'Novo Paciente', 'data_nascimento': '2019-01-01', 'cpf': '529.982.247-25',
             'criar_acesso': 'on', 'username': 'novo', 'password': 'Senha!Forte123'})
         novo = Paciente.objects.get(nome='Novo Paciente')
         self.assertRedirects(r, reverse('paciente_detail', args=[novo.pk]))
         self.assertEqual(novo.user.username, 'novo')
+
+
+class CPFTest(BaseSistema):
+    def test_digitos_verificadores(self):
+        from clinica.forms import cpf_valido
+        for valido in ['52998224725', '12345678909', '39053344705']:
+            self.assertTrue(cpf_valido(valido), valido)
+        for invalido in ['52998224724', '11111111111', '00000000000', '1234567890', '123456789012', 'abcdefghijk']:
+            self.assertFalse(cpf_valido(invalido), invalido)
+
+    def novo_paciente(self, cpf, nome='Paciente CPF'):
+        return self.client.post(reverse('cadastro_paciente'), {
+            'clinica': self.clinica.pk, 'nome': nome, 'data_nascimento': '2019-01-01', 'cpf': cpf})
+
+    def test_cpf_invalido_e_recusado_com_mensagem(self):
+        self.entrar(self.u_fono)
+        for cpf, msg in [('111.222.333-44', 'CPF inválido'), ('111.111.111-11', 'CPF inválido'),
+                         ('123.456', 'O CPF deve ter 11 dígitos'), ('', 'Este campo é obrigatório')]:
+            r = self.novo_paciente(cpf)
+            self.assertEqual(r.status_code, 200, cpf)
+            self.assertIn('cpf', r.context['form'].errors, cpf)
+            self.assertContains(r, msg)
+        self.assertFalse(Paciente.objects.filter(nome='Paciente CPF').exists())
+
+    def test_cpf_so_com_numeros_e_gravado_formatado(self):
+        self.entrar(self.u_fono)
+        r = self.novo_paciente('52998224725')
+        novo = Paciente.objects.get(nome='Paciente CPF')
+        self.assertRedirects(r, reverse('paciente_detail', args=[novo.pk]))
+        self.assertEqual(novo.cpf, '529.982.247-25')
+
+    def test_cpf_duplicado_mesmo_em_formato_diferente(self):
+        self.entrar(self.u_fono)
+        r = self.novo_paciente('39053344705')  # mesmo CPF do paciente base, sem pontuação
+        self.assertContains(r, 'Já existe um cadastro com este CPF')
+        Paciente.objects.filter(pk=self.paciente2.pk).update(cpf='12345678909')  # registro antigo sem pontuação
+        r = self.novo_paciente('123.456.789-09')
+        self.assertContains(r, 'Já existe um cadastro com este CPF')
+
+    def test_edicao_mantem_o_proprio_cpf_e_valida_alteracao(self):
+        self.entrar(self.u_fono)
+        url = reverse('paciente_editar', args=[self.paciente.pk])
+        dados = {'clinica': self.clinica.pk, 'nome': 'João da Silva', 'data_nascimento': '2016-05-10',
+                 'cpf': '390.533.447-05', 'nome_responsavel': 'Maria da Silva', 'historico_clinico': 'x'}
+        self.assertEqual(self.client.post(url, dados).status_code, 302)
+        r = self.client.post(url, {**dados, 'cpf': '390.533.447-06'})
+        self.assertContains(r, 'CPF inválido')
+        self.paciente.refresh_from_db()
+        self.assertEqual(self.paciente.cpf, '390.533.447-05')
+
+    def test_cadastro_de_fono_cpf_opcional_mas_validado(self):
+        base = {'password': 'Senha!Forte123', 'first_name': 'Fono Novo', 'email': 'f@x.com',
+                'telefone': '11', 'especialidade': 'Voz'}
+        r = self.client.post(reverse('cadastro_fono'), {**base, 'username': 'f1', 'crfa': '7-001', 'cpf': '123.456.789-00'})
+        self.assertIn('cpf', r.context['form'].errors)
+        self.client.post(reverse('cadastro_fono'), {**base, 'username': 'f2', 'crfa': '7-002', 'cpf': ''})
+        self.client.post(reverse('cadastro_fono'), {**base, 'username': 'f3', 'crfa': '7-003', 'cpf': ''})
+        self.assertEqual(Fonoaudiologo.objects.filter(crfa__in=['7-002', '7-003'], cpf__isnull=True).count(), 2)
+
+
+class NomeDoSistemaTest(BaseSistema):
+    def test_nome_fonogestao_acentuado(self):
+        r = self.client.get(reverse('password_reset'))
+        self.assertContains(r, 'FonoGestão')
+        self.assertNotContains(r, 'FonoGestao')
+        self.entrar(self.u_fono)
+        for nome, args in [('dashboard_fono', []), ('clinica_list', []), ('clinica_detail', [self.clinica.pk]),
+                           ('termos_uso', []), ('politica_privacidade', [])]:
+            self.assertNotContains(self.client.get(reverse(nome, args=args)), 'FonoGestao', msg_prefix=nome)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

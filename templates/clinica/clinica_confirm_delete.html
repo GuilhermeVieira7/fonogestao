@@ -1,5 +1,5 @@
 ﻿{% extends 'base.html' %}
-{% block title %}Excluir Clinica - FonoGestao{% endblock %}
+{% block title %}Excluir Clínica - FonoGestão{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-5">
@@ -7,10 +7,10 @@
             <div style="width:64px;height:64px;background:#fee2e2;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin:0 auto 16px;">
                 <i class="bi bi-exclamation-triangle-fill text-danger fs-3"></i>
             </div>
-            <h4 class="fw-700 mb-2">Excluir Clinica</h4>
-            <p class="text-muted mb-1" style="font-size:.875rem;">Tem certeza que deseja excluir a clinica:</p>
+            <h4 class="fw-700 mb-2">Excluir Clínica</h4>
+            <p class="text-muted mb-1" style="font-size:.875rem;">Tem certeza que deseja excluir a clínica:</p>
             <p class="fw-600 mb-4">{{ object.nome }}</p>
-            <p class="text-danger mb-4" style="font-size:.82rem;"><i class="bi bi-exclamation-circle me-1"></i>Esta acao nao pode ser desfeita.</p>
+            <p class="text-danger mb-4" style="font-size:.82rem;"><i class="bi bi-exclamation-circle me-1"></i>Esta ação não pode ser desfeita.</p>
             <form method="post" class="d-flex gap-2 justify-content-center">
                 {% csrf_token %}
                 <a href="{% url 'clinica_list' %}" class="btn btn-outline-secondary rounded-pill px-4">Cancelar</a>

@@ -91,7 +91,7 @@ class ClinicaAcessoEMedicoTestCase(TestCase):
             'password': 'senha123456',
             'nome': 'Paciente Teste Inválido',
             'data_nascimento': '2010-01-01',
-            'cpf': '123.456.789-01',
+            'cpf': '123.456.789-09',
             'clinica': self.clinica_a.id,
             'fonoaudiologo': self.fono2.id, # fono2 não está na clinica_a!
         })
@@ -104,7 +104,7 @@ class ClinicaAcessoEMedicoTestCase(TestCase):
             'password': 'senha123456',
             'nome': 'Paciente Teste Válido',
             'data_nascimento': '2010-01-01',
-            'cpf': '987.654.321-09',
+            'cpf': '987.654.321-00',
             'clinica': self.clinica_a.id,
             'fonoaudiologo': self.fono1.id,
         })

@@ -18,6 +18,48 @@ def validar_username_disponivel(username):
     return username
 
 
+def cpf_valido(digitos):
+    """Confere os dois dígitos verificadores de um CPF (11 dígitos, só números)."""
+    if len(digitos) != 11 or not digitos.isdigit() or digitos == digitos[0] * 11:
+        return False
+    for tamanho in (9, 10):
+        soma = sum(int(d) * peso for d, peso in zip(digitos[:tamanho], range(tamanho + 1, 1, -1)))
+        digito = (soma * 10) % 11 % 10
+        if digito != int(digitos[tamanho]):
+            return False
+    return True
+
+
+def formatar_cpf(digitos):
+    return f'{digitos[:3]}.{digitos[3:6]}.{digitos[6:9]}-{digitos[9:]}'
+
+
+class CPFValidoMixin:
+    """Valida o CPF (dígitos verificadores), grava no formato 000.000.000-00
+    e impede duplicidade mesmo que o registro antigo esteja salvo sem pontuação."""
+
+    cpf_obrigatorio = True
+
+    def clean_cpf(self):
+        valor = (self.cleaned_data.get('cpf') or '').strip()
+        if not valor:
+            if self.cpf_obrigatorio:
+                raise forms.ValidationError('Informe o CPF.')
+            return None
+        digitos = ''.join(c for c in valor if c.isdigit())
+        if len(digitos) != 11:
+            raise forms.ValidationError('O CPF deve ter 11 dígitos.')
+        if not cpf_valido(digitos):
+            raise forms.ValidationError('CPF inválido. Confira os números digitados.')
+        cpf = formatar_cpf(digitos)
+        existentes = self._meta.model.objects.filter(cpf__in=[cpf, digitos])
+        if self.instance.pk:
+            existentes = existentes.exclude(pk=self.instance.pk)
+        if existentes.exists():
+            raise forms.ValidationError('Já existe um cadastro com este CPF.')
+        return cpf
+
+
 class ClinicaForm(forms.ModelForm):
     class Meta:
         model = Clinica
@@ -102,7 +144,8 @@ class MaterialUploadForm(forms.ModelForm):
             raise forms.ValidationError('Envie um arquivo ou informe um link externo.')
         return cleaned_data
 
-class FonoaudiologoCadastroForm(forms.ModelForm):
+class FonoaudiologoCadastroForm(CPFValidoMixin, forms.ModelForm):
+    cpf_obrigatorio = False
     username = forms.CharField(max_length=150, required=True, label="Nome de Usuário (Login)", widget=forms.TextInput(attrs={'class': 'form-control'}))
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), label="Senha", required=True)
     first_name = forms.CharField(max_length=150, required=True, label="Nome Completo", widget=forms.TextInput(attrs={'class': 'form-control'}))
@@ -113,7 +156,7 @@ class FonoaudiologoCadastroForm(forms.ModelForm):
         fields = ['crfa', 'cpf', 'data_nascimento', 'telefone', 'especialidade']
         widgets = {
             'crfa': forms.TextInput(attrs={'class': 'form-control'}),
-            'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apenas números'}),
+            'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '000.000.000-00', 'inputmode': 'numeric'}),
             'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
             'telefone': forms.TextInput(attrs={'class': 'form-control'}),
             'especialidade': forms.TextInput(attrs={'class': 'form-control'}),
@@ -122,7 +165,7 @@ class FonoaudiologoCadastroForm(forms.ModelForm):
     def clean_username(self):
         return validar_username_disponivel(self.cleaned_data.get('username'))
 
-class PacienteCadastroForm(forms.ModelForm):
+class PacienteCadastroForm(CPFValidoMixin, forms.ModelForm):
     username = forms.CharField(max_length=150, required=True, label="Nome de Usuário (Login)", widget=forms.TextInput(attrs={'class': 'form-control'}))
     password = forms.CharField(widget=forms.PasswordInput(attrs={'class': 'form-control'}), label="Senha", required=True)
     
@@ -134,7 +177,7 @@ class PacienteCadastroForm(forms.ModelForm):
             'fonoaudiologo': forms.Select(attrs={'class': 'form-select'}),
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
             'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
-            'cpf': forms.TextInput(attrs={'class': 'form-control'}),
+            'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '000.000.000-00', 'inputmode': 'numeric'}),
             'nome_responsavel': forms.TextInput(attrs={'class': 'form-control'}),
             'historico_clinico': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
@@ -169,7 +212,7 @@ class PacienteCadastroForm(forms.ModelForm):
         return cleaned_data
 
 
-class FonoCadastraPacienteForm(forms.ModelForm):
+class FonoCadastraPacienteForm(CPFValidoMixin, forms.ModelForm):
     criar_acesso = forms.BooleanField(
         required=False,
         initial=True,
@@ -195,7 +238,7 @@ class FonoCadastraPacienteForm(forms.ModelForm):
             'clinica': forms.Select(attrs={'class': 'form-select'}),
             'nome': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome completo do paciente'}),
             'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
-            'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '000.000.000-00'}),
+            'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '000.000.000-00', 'inputmode': 'numeric'}),
             'nome_responsavel': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nome do responsável (opcional)'}),
             'historico_clinico': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Queixa principal, diagnóstico ou observações iniciais...'}),
         }
@@ -235,7 +278,7 @@ class FonoCadastraPacienteForm(forms.ModelForm):
         return cleaned_data
 
 
-class PacienteUpdateForm(forms.ModelForm):
+class PacienteUpdateForm(CPFValidoMixin, forms.ModelForm):
     class Meta:
         model = Paciente
         fields = ['clinica', 'nome', 'data_nascimento', 'cpf', 'nome_responsavel', 'historico_clinico']
@@ -243,7 +286,7 @@ class PacienteUpdateForm(forms.ModelForm):
             'clinica': forms.Select(attrs={'class': 'form-select'}),
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
             'data_nascimento': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
-            'cpf': forms.TextInput(attrs={'class': 'form-control'}),
+            'cpf': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '000.000.000-00', 'inputmode': 'numeric'}),
             'nome_responsavel': forms.TextInput(attrs={'class': 'form-control'}),
             'historico_clinico': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }

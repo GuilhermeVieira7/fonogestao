@@ -178,9 +178,9 @@
             <i class="bi bi-shield-check-fill"></i> Privacidade e LGPD
         </a>
         {% elif user.paciente_perfil %}
-        <span class="sidebar-section-label">Minha Area</span>
+        <span class="sidebar-section-label">Minha Área</span>
         <a href="{% url 'area_paciente' %}" class="sidebar-link {% if request.resolver_match.url_name == 'area_paciente' %}active{% endif %}">
-            <i class="bi bi-grid-1x2-fill"></i> Minha Area
+            <i class="bi bi-grid-1x2-fill"></i> Minha Área
         </a>
         <a href="{% url 'termos_uso' %}" class="sidebar-link {% if request.resolver_match.url_name == 'termos_uso' %}active{% endif %}">
             <i class="bi bi-file-text-fill"></i> Termos de Uso
@@ -196,7 +196,7 @@
             <div class="sidebar-avatar">{% if prefs.foto_url %}<img src="{{ prefs.foto_url }}" alt="Foto de perfil">{% else %}{{ user.get_full_name|default:user.username|make_list|first|upper }}{% endif %}</div>
             <div style="min-width:0">
                 <div class="sidebar-user-name">{{ user.get_full_name|default:user.username }}</div>
-                <div class="sidebar-user-role">{% if user.fonoaudiologo %}Fonoaudiologo(a){% elif user.paciente_perfil %}Paciente{% else %}Usuario{% endif %}</div>
+                <div class="sidebar-user-role">{% if user.fonoaudiologo %}Fonoaudiólogo(a){% elif user.paciente_perfil %}Paciente{% else %}Usuário{% endif %}</div>
             </div>
             </a>
             <form method="post" action="{% url 'logout' %}" class="ms-auto">
@@ -226,7 +226,7 @@
             <!-- Inner Curve 4 -->
             <path d="M 42 50 C 39 52, 39 55, 43 58 C 45 59, 44 61, 42 63" stroke="white" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.7" />
         </svg>
-        <span style="font-weight:700;color:var(--primary);font-size:.95rem;">FonoGestao</span>
+        <span style="font-weight:700;color:var(--primary);font-size:.95rem;">FonoGestão</span>
     </a>
     <div style="width:36px"></div>
 </div>
@@ -254,7 +254,7 @@
         </main>
 
         <footer class="page-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <span>&copy; 2026 FonoGestao Clinica. Todos os direitos reservados.</span>
+            <span>&copy; 2026 FonoGestão Clínica. Todos os direitos reservados.</span>
             <span>
                 <a href="{% url 'termos_uso' %}" class="text-muted text-decoration-none me-3">Termos</a>
                 <a href="{% url 'politica_privacidade' %}" class="text-muted text-decoration-none">Privacidade</a>
