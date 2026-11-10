@@ -97,6 +97,17 @@ DATABASES = {
 }
 
 
+# Hash de senhas: Argon2id (vencedor da Password Hashing Competition, RFC 9106).
+# Os demais ficam na lista só para validar senhas antigas; no próximo login
+# o Django regrava a senha automaticamente em Argon2id.
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2SHA1PasswordHasher',
+    'django.contrib.auth.hashers.ScryptPasswordHasher',
+]
+
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
